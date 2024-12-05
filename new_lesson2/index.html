@@ -15,7 +15,7 @@
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
       const geoJson = await fetch('ne_50m_land.json').then((res) => res.json())
       const geometries = geoJson.features.map((feature) => feature.geometry)
-      draw(geometries)
+      draw(geometries, canvasOffset)
 
       canvas.addEventListener('wheel', (e) => {
         const diff = e.deltaY

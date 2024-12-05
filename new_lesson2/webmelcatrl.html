@@ -24,7 +24,6 @@
 
       canvas.addEventListener('wheel', async (e) => {
         const diff = e.deltaY
-        console.log(`diff: ${diff}`)
         let newZoom = zoom
         if (diff < 0) {
           newZoom += 1
@@ -53,6 +52,7 @@
           canvasOffset.y += (mousePosition.y - e.offsetY) / (30 - zoom)
           const x = Math.min(Math.max(Math.floor(canvasOffset.x), 0), 2 ** zoom - 1)
           const y = Math.min(Math.max(Math.floor(canvasOffset.y), 0), 2 ** zoom - 1)
+          console.log(`x: ${x}, y: ${y}, z: ${zoom}`)
           const img = await createImage(x, y, zoom)
           if (img) {
             drawImage(img)
@@ -77,7 +77,6 @@
     const img = document.createElement('img')
     img.src = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`
     await img.decode()
-    console.log(`requesting x: ${x}, y: ${y}, z: ${z}`)
     isRequesting = false
     return img
   }
@@ -86,6 +85,7 @@
     const canvas = document.getElementById('canvas')
     const ctx = canvas.getContext('2d')
     ctx.drawImage(img, 0, 0)
+    ctx.drawImage(img, 0, 250)
   }
 
   function lonlat2xy(lon, lat) {
