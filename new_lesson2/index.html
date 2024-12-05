@@ -1,0 +1,95 @@
+<html>
+  <script>
+    let zoom = 10;
+    const CANVAS_WIDTH = 600
+    const CANVAS_HEIGHT = 600
+    let isMouseDown = false
+    let canvasOffset = { x: 0, y: 0 }
+    let mousePosition = { x: -1, y: -1 }
+    
+    async function init() {
+      const canvas = document.getElementById('canvas')
+      canvas.width = CANVAS_WIDTH
+      canvas.height = CANVAS_HEIGHT;
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+      const geoJson = await fetch('ne_50m_land.json').then((res) => res.json())
+      const geometries = geoJson.features.map((feature) => feature.geometry)
+      draw(geometries)
+
+      canvas.addEventListener('wheel', (e) => {
+        const diff = e.deltaY
+        const prevZoom = zoom
+        if (diff < 0) {
+          zoom *= 1.1
+        } else {
+          zoom *= 0.9
+        }
+        canvasOffset.x += (1/prevZoom - 1/zoom) * mousePosition.x
+        canvasOffset.y += (1/prevZoom - 1/zoom) * mousePosition.y
+        draw(geometries, canvasOffset)
+      })
+
+      canvas.addEventListener('mousedown', (e) => {
+        isMouseDown = true
+      })
+
+      canvas.addEventListener('mousemove', (e) => {
+        if (isMouseDown) {
+          canvasOffset.x += (mousePosition.x - e.offsetX) / zoom
+          canvasOffset.y += (mousePosition.y - e.offsetY) / zoom
+          draw(geometries, canvasOffset)
+        }
+        mousePosition.x = e.offsetX
+        mousePosition.y = e.offsetY
+      })
+
+      canvas.addEventListener('mouseup', () => {
+        isMouseDown = false
+      })
+  }
+
+  function lonlat2xy(lon, lat) {
+    return { 
+      x: lon + 180,
+      y: 90 - lat
+    }
+  }
+
+  function map2canvas(x, y, canvasOffset) {
+    return {
+      x: zoom * (x - canvasOffset.x),
+      y: zoom * (y - canvasOffset.y)
+    }
+  }
+
+  function draw(geometries, canvasOffset) {
+    const canvas = document.getElementById('canvas')
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+    for (const geometry of geometries) {
+      for (const coordinate of geometry.coordinates) {
+        const verticies = coordinate.map(([lon, lat]) => {
+          const { x, y } = lonlat2xy(lon, lat)
+          return map2canvas(x, y, canvasOffset)
+        })
+        drawRect(ctx, verticies)
+      }
+    }
+  }
+
+  function drawRect(ctx, verticies) {
+    ctx.beginPath()
+    for (const { x, y } of verticies) {
+      ctx.lineTo(x, y)
+    }
+    ctx.closePath()
+    ctx.stroke()
+  }
+
+
+  </script>
+  <body onload="init()">
+    <canvas id="canvas"></canvas>
+  </body>
+</html>

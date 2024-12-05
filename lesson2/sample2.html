@@ -1,0 +1,176 @@
+<html></html>
+
+<style>
+#canvas {
+  width: 100%;
+  border: 1px solid #000;
+}
+</style>
+
+<script>
+const CANVAS_HEIGHT = 100
+const SCALE_INTERVAL = 10 * 1000
+const TIME_MS_PER_PIX = 1000
+
+const SCALE_H_LINE_POS_Y = 60
+const SCALE_H_LINE_HEIGHT = 4
+const SCALE_V_LONG_LINE_POS_Y = 50
+const SCALE_V_LONG_LINE_HEIGHT = 25
+const SCALE_V_SHORT_LINE_POS_Y = 60
+const SCALE_V_SHORT_LINE_HEIGHT = 10
+const SCALE_TEXT_POS_Y = 86
+const SCALE_LINE_COLOR = 'rgb(0, 0, 0)'
+const SCALE_TEXT_COLOR = 'rgb(0, 0, 0)'
+const SCALE_TEXT_FONT = '12px serif'
+
+const CENTER_TRIANGLE_HEIGHT = 15
+const CENTER_TRIANGLE_WIDTH = 20
+const CENTER_TEXT_FONT_SIZE = 20
+const CENTER_TEXT_COLOR = 'rgb(255, 100, 100)'
+const CENTER_TEXT_FONT = CENTER_TEXT_FONT_SIZE + 'px serif'
+const CENTER_LINE_COLOR = 'rgb(255, 100, 100)'
+
+let currentTimeMs = new Date().getTime()  
+let isMouseDown = false
+let mousePosX = -1
+
+function init() {
+  const canvas = document.getElementById('canvas')
+
+  canvas.addEventListener('mousedown', (e) => {
+    isMouseDown = true
+    mousePosX = e.offsetX
+  })
+
+  canvas.addEventListener('mouseup', () => {
+    isMouseDown = false
+  })
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (isMouseDown) {
+      const prevMousePosX = mousePosX
+      mousePosX = e.offsetX
+      const diffX = prevMousePosX - mousePosX
+      currentTimeMs += diffX * TIME_MS_PER_PIX
+    }
+  })
+
+  drawTimeline()
+}
+
+function drawTimeline() {
+  const canvas = document.getElementById('canvas')
+  const canvasWidth = canvas.clientWidth 
+  canvas.width = canvasWidth
+  canvas.height = CANVAS_HEIGHT
+  const ctx = canvas.getContext('2d')
+
+  // キャンバスのクリア
+  ctx.clearRect(0, 0, canvasWidth, CANVAS_HEIGHT)
+
+  // スケールの横線
+  ctx.fillStyle = SCALE_LINE_COLOR
+  ctx.fillRect(0, SCALE_H_LINE_POS_Y, canvasWidth, SCALE_H_LINE_HEIGHT)
+
+  // スケールの描画
+  const leftEndTime = pos2Time(0, canvasWidth)
+  const rightEndTime = pos2Time(canvasWidth, canvasWidth)
+  const firstScaleTime = Math.floor(leftEndTime / SCALE_INTERVAL) * SCALE_INTERVAL
+  let i = 0
+  while (1) {
+    const scaleTime = firstScaleTime + i * SCALE_INTERVAL
+    if (scaleTime > rightEndTime) {
+      break;
+    }
+    const scaleDate = new Date(scaleTime)
+
+    // スケールの目盛り
+    const scalePosX = Math.round(time2Pos(scaleTime, canvasWidth))
+    if (scaleDate.getSeconds() === 0) {
+      const y1 = SCALE_V_LONG_LINE_POS_Y
+      const y2 = SCALE_V_LONG_LINE_POS_Y + SCALE_V_LONG_LINE_HEIGHT
+      drawLine(ctx, scalePosX, y1, scalePosX, y2, SCALE_LINE_COLOR)
+    } else {
+      const y1 = SCALE_V_SHORT_LINE_POS_Y
+      const y2 = SCALE_V_SHORT_LINE_POS_Y + SCALE_V_SHORT_LINE_HEIGHT
+      drawLine(ctx, scalePosX, y1, scalePosX, y2, SCALE_LINE_COLOR)
+    }    
+
+    // 目盛りのテキスト
+    if (scaleDate.getSeconds() === 0) {
+      ctx.font = SCALE_TEXT_FONT
+      ctx.fillStyle = SCALE_TEXT_COLOR
+      ctx.textBaseline = 'middle'
+      const hour = String(scaleDate.getHours()).padStart(2, '0')
+      const min = String(scaleDate.getMinutes()).padStart(2, '0')
+      const timeText = `${hour}:${min}`
+      const timeTextWidth = ctx.measureText(timeText).width
+      const timeTextPosX = scalePosX - timeTextWidth / 2
+      ctx.fillText(timeText, timeTextPosX, SCALE_TEXT_POS_Y)
+    }
+
+    ++i
+  }
+
+  // 現在時刻のテキスト
+  const centerPosX = canvasWidth / 2
+  ctx.font = CENTER_TEXT_FONT
+  ctx.fillStyle = CENTER_TEXT_COLOR
+  ctx.textBaseline = 'middle'
+  const timeText = new Date(currentTimeMs).toLocaleTimeString()
+  const timeTextWidth = ctx.measureText(timeText).width
+  const timeTextPosX = centerPosX - timeTextWidth / 2
+  const centerLineHeight = SCALE_H_LINE_POS_Y - CENTER_TRIANGLE_HEIGHT
+  const timeTextPosY = centerLineHeight / 2
+  ctx.fillText(timeText, timeTextPosX, timeTextPosY)  
+  
+  // 現在時刻の線
+  ctx.strokeStyle = CENTER_LINE_COLOR
+  const centerLine1Height = (centerLineHeight - CENTER_TEXT_FONT_SIZE) / 2
+  const centerLine2PosY = centerLine1Height + CENTER_TEXT_FONT_SIZE
+  drawLine(ctx, centerPosX, 0, centerPosX, centerLine1Height)
+  drawLine(ctx, centerPosX, centerLine2PosY, centerPosX, SCALE_H_LINE_POS_Y)
+  ctx.fillStyle = CENTER_TEXT_COLOR
+  drawPolygon(ctx, [
+    {x:centerPosX, y:SCALE_H_LINE_POS_Y - CENTER_TRIANGLE_HEIGHT},
+    {x:centerPosX - CENTER_TRIANGLE_WIDTH / 2, y:SCALE_H_LINE_POS_Y},
+    {x:centerPosX + CENTER_TRIANGLE_WIDTH / 2, y:SCALE_H_LINE_POS_Y},
+  ])
+
+  // アニメーション
+  window.requestAnimationFrame(drawTimeline)
+}
+
+function drawLine(ctx, x1, y1, x2, y2) {
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  ctx.lineTo(x2, y2)
+  ctx.stroke()
+}
+
+function drawPolygon(ctx, vertices) {
+  ctx.beginPath()
+  ctx.moveTo(vertices[0].x, vertices[0].y)
+  for(let i = 1; vertices.length > i; ++i) {
+    ctx.lineTo(vertices[i].x, vertices[i].y)
+  }
+  ctx.closePath()
+  ctx.fill()
+}
+
+function pos2Time (pos, canvasWidth) {
+  const leftEndTimeMs = currentTimeMs - canvasWidth / 2 * TIME_MS_PER_PIX 
+  return pos * TIME_MS_PER_PIX + leftEndTimeMs
+}
+
+function time2Pos (timeMs, canvasWidth) {
+  const leftEndTimeMs = currentTimeMs - canvasWidth / 2 * TIME_MS_PER_PIX 
+  return (timeMs - leftEndTimeMs) / TIME_MS_PER_PIX
+}
+</script>
+
+<body onload="init()">
+  <canvas id="canvas"></canvas>
+</body>
+
+</html>

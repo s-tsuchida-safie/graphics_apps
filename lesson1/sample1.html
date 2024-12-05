@@ -1,0 +1,83 @@
+<html>
+
+<style>
+#canvas {
+  border: 1px solid #000;
+}
+</style>
+
+<script>
+function draw() {
+  const canvas = document.getElementById('canvas')
+  const ctx = canvas.getContext('2d');
+
+  // ライン
+  ctx.strokeStyle = 'rgb(200, 0, 0)';
+  ctx.beginPath();
+  ctx.moveTo(50, 50);
+  ctx.lineTo(150, 150);
+  ctx.stroke();
+
+  // ライン
+  ctx.strokeStyle = 'rgb(0, 200, 0)';
+  ctx.beginPath();
+  ctx.moveTo(150, 50);
+  ctx.lineTo(50, 150);
+  ctx.stroke();
+
+  // 多角形
+  ctx.strokeStyle = 'rgb(0, 0, 200)';
+  ctx.beginPath();
+  ctx.moveTo(250, 50);
+  ctx.lineTo(200, 100);
+  ctx.lineTo(220, 150);
+  ctx.lineTo(280, 150);
+  ctx.lineTo(300, 100);
+  ctx.closePath();
+  ctx.stroke();
+
+  // 多角形塗りつぶし
+  ctx.fillStyle = 'rgb(200, 0, 200)';
+  ctx.beginPath();
+  ctx.moveTo(400, 50);
+  ctx.lineTo(350, 100);
+  ctx.lineTo(370, 150);
+  ctx.lineTo(430, 150);
+  ctx.lineTo(450, 100);
+  ctx.closePath();
+  ctx.fill();   
+
+  // 矩形 stokeRect(x, y, width, height)
+  ctx.strokeStyle = 'rgb(200, 100, 100)';
+  ctx.strokeRect(50, 200, 150, 100);
+
+  // 矩形塗りつぶし fillRect(x, y, width, height)
+  ctx.fillStyle = 'rgb(200, 200, 0)';
+  ctx.fillRect(250, 200, 150, 100);
+
+  // 円 arc(x, y, r, start, end)
+  ctx.strokeStyle = 'rgb(100, 200, 100)';
+  ctx.beginPath(); 
+  ctx.arc(100, 400, 50, 0, 2 * Math.PI); 
+  ctx.closePath();
+  ctx.stroke();
+
+  // 円塗りつぶし arc(x, y, r, start, end)
+  ctx.fillStyle = 'rgb(100, 200, 100)';
+  ctx.beginPath(); 
+  ctx.arc(250, 400, 50, 0, 2 * Math.PI); 
+  ctx.closePath();
+  ctx.fill();
+
+  // テキスト描画 fillText(text, x, y)
+  ctx.font = '40px serif';
+  ctx.fillStyle = 'rgb(100, 100, 100)';
+  ctx.fillText('TEXT', 350, 420); 
+}
+</script>
+
+<body onload="draw()">
+  <canvas id="canvas" width="500" height="500"></canvas>
+</body>
+
+</html>

@@ -1,0 +1,83 @@
+<html></html>
+
+<style>
+#canvas {
+  border: 1px solid #000;
+  margin-bottom: 10px;
+}
+</style>
+
+<script>
+let isMouseDown = false
+let mouseDownPosX = -1
+let mouseDownPosY = -1
+let rects = []
+
+function init() {
+  const canvas = document.getElementById('canvas')
+  const ctx = canvas.getContext('2d')
+
+  canvas.addEventListener('mousedown', (e) => {
+    isMouseDown = true
+    mouseDownPosX = e.offsetX
+    mouseDownPosY = e.offsetY
+  })
+
+  canvas.addEventListener('mouseup', (e) => {
+    isMouseDown = false
+    const mousePosX = e.offsetX
+    const mousePosY = e.offsetY
+
+    const x = mouseDownPosX
+    const y = mouseDownPosY
+    const w = mousePosX - mouseDownPosX
+    const h = mousePosY - mouseDownPosY   
+    rects.push({x, y, w, h})
+    
+    drawRects()
+  })
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (isMouseDown) {
+      const mousePosX = e.offsetX
+      const mousePosY = e.offsetY
+
+      drawRects()
+
+      const x = mouseDownPosX
+      const y = mouseDownPosY
+      const width = mousePosX - mouseDownPosX
+      const height = mousePosY - mouseDownPosY        
+      ctx.strokeStyle = 'rgb(255, 0, 0)'
+      ctx.strokeRect(x, y, width, height) 
+    }
+  })
+}
+
+function drawRects () {
+  const canvas = document.getElementById('canvas')
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, 500, 500)
+
+  for (const rect of rects) {
+    ctx.fillStyle = 'rgb(255, 0, 0)'
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h)
+  }
+}
+
+function clearCanvas () {
+  const canvas = document.getElementById('canvas')
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, 500, 500)
+  rects = []
+}
+</script>
+
+<body onload="init()">
+  <canvas id="canvas" width="500" height="500"></canvas>
+  <div>
+    <button onclick="clearCanvas()">Clear</button>
+  </div>
+</body>
+
+</html>

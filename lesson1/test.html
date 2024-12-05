@@ -1,0 +1,261 @@
+<html>
+
+<style>
+#canvas {
+  border: 1px solid #000;
+  margin-bottom: 10px;
+}
+
+.button-area {
+  display: flex;
+  gap: 10px;
+}
+
+.color-area {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+
+.color-button {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 50px;
+}
+
+#color-display {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #000;
+}
+</style>
+
+<script>
+let isMouseDown = false
+let mouseDownPosX = -1
+let mouseDownPosY = -1
+let rects = []
+let mode = 'draw'
+let value = 0
+
+function init() {
+  const canvas = document.getElementById('canvas')
+  const ctx = canvas.getContext('2d');
+  const red = document.getElementById('red')
+  const green = document.getElementById('green')
+  const blue = document.getElementById('blue')
+  const colorDisplay = document.getElementById('color-display')
+  colorDisplay.style.backgroundColor = `rgb(${red.value}, ${green.value}, ${blue.value})`
+
+
+  red.addEventListener('input', (e) => {
+    colorDisplay.style.backgroundColor = `rgb(${e.target.value}, ${green.value}, ${blue.value})`
+    value++;
+  })
+
+  green.addEventListener('input', (e) => {
+    colorDisplay.style.backgroundColor = `rgb(${red.value}, ${e.target.value}, ${blue.value})`
+    value++;
+  })
+  
+  blue.addEventListener('input', (e) => {
+    colorDisplay.style.backgroundColor = `rgb(${red.value}, ${green.value}, ${e.target.value})`
+    value++;
+  })
+
+  canvas.addEventListener('mousedown', (e) => {
+    isMouseDown = true
+    mousePosX = e.offsetX
+    mousePosY = e.offsetY
+  })
+
+  canvas.addEventListener('mouseup', () => {
+    if (mode === 'rect') {
+      isMouseDown = false
+      const mousePosX = e.offsetX
+      const mousePosY = e.offsetY
+
+      const x = mouseDownPosX
+      const y = mouseDownPosY
+      const w = mousePosX - mouseDownPosX
+      const h = mousePosY - mouseDownPosY   
+      rects.push({x, y, w, h})
+      
+      drawRects()
+    }
+    if (mode === 'draw') {
+      isMouseDown = false
+    }
+  })
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (mode === 'draw') {
+      if (isMouseDown) {
+        const prevMousePosX = mousePosX
+        const prevMousePosY = mousePosY
+        mousePosX = e.offsetX
+        mousePosY = e.offsetY
+        ctx.strokeStyle = `rgb(${red.value}, ${green.value}, ${blue.value})`
+        ctx.beginPath()
+        ctx.moveTo(prevMousePosX, prevMousePosY)
+        ctx.lineTo(mousePosX, mousePosY)
+        ctx.stroke() 
+      }
+    }
+    
+
+    if (mode === 'rect') {
+      if (isMouseDown) {
+        const mousePosX = e.offsetX
+        const mousePosY = e.offsetY
+
+        drawRects()
+
+        const x = mouseDownPosX
+        const y = mouseDownPosY
+        const width = mousePosX - mouseDownPosX
+        const height = mousePosY - mouseDownPosY        
+        ctx.strokeStyle = 'rgb(255, 0, 0)'
+        ctx.strokeRect(x, y, width, height) 
+      }
+    }
+  })
+
+  function drawRects () {
+    const canvas = document.getElementById('canvas')
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, 500, 500)
+
+    for (const rect of rects) {
+      ctx.fillStyle = 'rgb(255, 0, 0)'
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h)
+    }
+  }
+}
+
+function changeDrawMode() {
+  const oldCanvas = document.getElementById('canvas')
+  const canvas = oldCanvas.cloneNode(true)
+  oldCanvas.replaceWith(canvas)
+  const ctx = canvas.getContext('2d');
+  
+
+  canvas.addEventListener('mousedown', (e) => {
+    isMouseDown = true
+    mousePosX = e.offsetX
+    mousePosY = e.offsetY
+  })
+
+  canvas.addEventListener('mouseup', () => {
+    isMouseDown = false
+  })
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (isMouseDown) {
+      const prevMousePosX = mousePosX
+      const prevMousePosY = mousePosY
+      mousePosX = e.offsetX
+      mousePosY = e.offsetY
+      ctx.strokeStyle = `rgb(${red.value}, ${green.value}, ${blue.value})`
+      ctx.beginPath()
+      ctx.moveTo(prevMousePosX, prevMousePosY)
+      ctx.lineTo(mousePosX, mousePosY)
+      ctx.stroke() 
+    }
+  })
+}
+
+function changeRectMode() {
+  const oldCanvas = document.getElementById('canvas')
+  const canvas = oldCanvas.cloneNode(true)
+  oldCanvas.replaceWith(canvas)
+  const ctx = canvas.getContext('2d');
+
+  canvas.addEventListener('mousedown', (e) => {
+    isMouseDown = true
+    mouseDownPosX = e.offsetX
+    mouseDownPosY = e.offsetY
+  })
+
+  canvas.addEventListener('mouseup', (e) => {
+    isMouseDown = false
+    const mousePosX = e.offsetX
+    const mousePosY = e.offsetY
+
+    const x = mouseDownPosX
+    const y = mouseDownPosY
+    const w = mousePosX - mouseDownPosX
+    const h = mousePosY - mouseDownPosY   
+    rects.push({x, y, w, h})
+    
+    drawRects()
+  })
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (isMouseDown) {
+      const mousePosX = e.offsetX
+      const mousePosY = e.offsetY
+
+      drawRects()
+
+      const x = mouseDownPosX
+      const y = mouseDownPosY
+      const width = mousePosX - mouseDownPosX
+      const height = mousePosY - mouseDownPosY        
+      ctx.strokeStyle = 'rgb(255, 0, 0)'
+      ctx.strokeRect(x, y, width, height) 
+    }
+  })
+
+  function drawRects () {
+    const canvas = document.getElementById('canvas')
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, 500, 500)
+
+    for (const rect of rects) {
+      ctx.fillStyle = 'rgb(255, 0, 0)'
+      ctx.fillRect(rect.x, rect.y, rect.w, rect.h)
+    }
+  }
+}
+
+function changeMode (newMode) {
+  if (newMode === 'draw') {
+    // changeDrawMode()
+    mode = 'draw'
+  }
+  if (newMode === 'rect') {
+    // changeRectMode()
+    mode = 'rect'
+  }
+}
+
+function clearCanvas () {
+  const canvas = document.getElementById('canvas')
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, 500, 500)
+  rects = []
+}
+</script>
+
+<body onload="init()">
+  <canvas id="canvas" width="500" height="500"></canvas>
+  <div class="button-area">
+    <button onclick="clearCanvas()">Clear</button>
+    <button onclick="changeMode('draw')">Draw</button>
+    <button onclick="changeMode('rect')">Rect</button>
+  </div>
+  <div class="color-area">
+    <div class="color-button">
+      <input type="number" id="red" value="0" min="0" max="255" step="10">
+      <input type="number" id="green" value="0" min="0" max="255" step="10">
+      <input type="number" id="blue" value="0" min="0" max="255" step="10">
+    </div>
+    <div id="color-display" />
+  </div>
+  
+</body>
+
+</html>

@@ -1,0 +1,58 @@
+<html>
+
+<style>
+#canvas {
+  border: 1px solid #000;
+  margin-bottom: 10px;
+}
+</style>
+
+<script>
+let isMouseDown = false
+let mousePosX = -1
+let mousePosY = -1
+
+function init() {
+  const canvas = document.getElementById('canvas')
+  const ctx = canvas.getContext('2d');
+
+  canvas.addEventListener('mousedown', (e) => {
+    isMouseDown = true
+    mousePosX = e.offsetX
+    mousePosY = e.offsetY
+  })
+
+  canvas.addEventListener('mouseup', () => {
+    isMouseDown = false
+  })
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (isMouseDown) {
+      const prevMousePosX = mousePosX
+      const prevMousePosY = mousePosY
+      mousePosX = e.offsetX
+      mousePosY = e.offsetY
+      ctx.strokeStyle = 'rgb(0, 0, 0)'
+      ctx.beginPath()
+      ctx.moveTo(prevMousePosX, prevMousePosY)
+      ctx.lineTo(mousePosX, mousePosY)
+      ctx.stroke() 
+    }
+  })
+}
+
+function clearCanvas () {
+  const canvas = document.getElementById('canvas')
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, 500, 500)
+}
+</script>
+
+<body onload="init()">
+  <canvas id="canvas" width="500" height="500"></canvas>
+  <div>
+    <button onclick="clearCanvas()">Clear</button>
+  </div>
+</body>
+
+</html>
