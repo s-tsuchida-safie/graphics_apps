@@ -1,14 +1,15 @@
 <html>
   <script>
     let zoom = 10;
-    const CANVAS_WIDTH = 600
-    const CANVAS_HEIGHT = 600
+    const CANVAS_WIDTH = 1730
+    const CANVAS_HEIGHT = 800
     let isMouseDown = false
     let canvasOffset = { x: 0, y: 0 }
     let mousePosition = { x: -1, y: -1 }
     
     async function init() {
       const canvas = document.getElementById('canvas')
+      canvas.style.border = '1px solid black'
       canvas.width = CANVAS_WIDTH
       canvas.height = CANVAS_HEIGHT;
       const ctx = canvas.getContext('2d')
@@ -35,6 +36,10 @@
       })
 
       canvas.addEventListener('mousemove', (e) => {
+        if (e.offsetX < 20 || e.offsetX > CANVAS_WIDTH - 20 || e.offsetY < 20 || e.offsetY > CANVAS_HEIGHT - 20) {
+          isMouseDown = false
+          return
+        }
         if (isMouseDown) {
           canvasOffset.x += (mousePosition.x - e.offsetX) / zoom
           canvasOffset.y += (mousePosition.y - e.offsetY) / zoom
@@ -81,6 +86,9 @@
   function drawRect(ctx, verticies) {
     ctx.beginPath()
     for (const { x, y } of verticies) {
+      if (x < 0 && y < 0 || x > CANVAS_WIDTH && y > CANVAS_HEIGHT) {
+        continue
+      }
       ctx.lineTo(x, y)
     }
     ctx.closePath()
