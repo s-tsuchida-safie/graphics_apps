@@ -30,30 +30,28 @@
         if (!isImgRequesting) {
           const diffZ = e.deltaY
           let newZoom = zoom
+          let newImageSize = imageSize
           if (diffZ < 0) {
             newZoom += 1
-            imageSize = imageSize * 2
+            newImageSize = newImageSize * 2
           } else {
             newZoom -= 1
-            imageSize = imageSize / 2
+            newImageSize = newImageSize / 2
           }
           newZoom = Math.max(Math.min(newZoom, 18), 0)
           if (newZoom === zoom) {
             return
           }
-          // imageSize = 512
+          // imageSize = newImageSize
+          // let tiles = createTiles(displayStartTile)
+          // await drawTiles(tiles)
+
           viewPortTopLeftTile = {
             canvasPos: getMouseTileCanvasPos(viewPortTopLeftTile),
             coordinate: getCoordinateOnNewZoom(newZoom, viewPortTopLeftTile)
           }
-          clearCanvas()
-          // let displayStartTile = moveViewPortTopLeftTile(topLeftTile)
-          // let tiles = createTiles(displayStartTile)
-          // await drawTiles(tiles)
-
           zoom = newZoom
           imageSize = 256
-
           displayStartTile = moveViewPortTopLeftTile(viewPortTopLeftTile)
           const newTiles = createTiles(displayStartTile)
           await drawTiles(newTiles)
@@ -85,7 +83,6 @@
               ...viewPortTopLeftTile.coordinate
             }
           }
-          clearCanvas()
           const displayStartTile = moveViewPortTopLeftTile(viewPortTopLeftTile)
           const tiles = createTiles(displayStartTile)
           isCalculated = false
@@ -267,7 +264,7 @@
 
   async function drawTiles(tiles) {
     const emptyImgTiles = []
-    clearCanvas()
+    const imgTileObjects = []
     for (let y = 0; y < tiles.length; y++) {
       for (let x = 0; x < tiles[y].length; x++) {
         const tile = tiles[y][x]
@@ -281,9 +278,18 @@
           continue
         }
         const img = imageCache[index].img
+        imgTileObjects.push({ img, tile })
+      }
+    }
+
+    if (imgTileObjects.length > 0) {
+      clearCanvas()
+      for (const { img, tile } of imgTileObjects) {
         drawImage(img, tile.canvasPos, tile.coordinate)
       }
     }
+
+    
 
 
     if (isImgRequesting || isCacheFetched) {
@@ -313,14 +319,10 @@
     const img = document.createElement('img')
     try {
       img.src = `${TILE_URL}/${z}/${x}/${y}.png`
-      img.width = imageSize
-      img.height = imageSize
       await img.decode()
     } catch {
       console.error(`Failed to load image: ${TILE_URL}/${z}/${x}/${y}.png`)
       img.src = ''
-      img.width = imageSize
-      img.height = imageSize
     }
     isImgRequesting = false
     return img
@@ -330,8 +332,7 @@
     const canvas = document.getElementById('canvas')
     const ctx = canvas.getContext('2d')
     if (img instanceof HTMLImageElement) {
-      ctx.drawImage(img, canvasPos.x.min * 256 / imageSize, canvasPos.y.min * 256 / imageSize)
-      console.log(`params: ${canvasPos.x.min}, ${canvasPos.y.min}, ${256}, ${256}, ${canvasPos.x.min}, ${canvasPos.y.min}, ${imageSize}, ${imageSize}`)
+      ctx.drawImage(img, canvasPos.x.min, canvasPos.y.min, imageSize, imageSize)
       ctx.strokeRect(canvasPos.x.min, canvasPos.y.min, imageSize, imageSize)
       ctx.font = '20px serif'
       ctx.fillStyle = 'rgb(255, 0, 0)'
