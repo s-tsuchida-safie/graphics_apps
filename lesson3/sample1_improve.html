@@ -1,0 +1,97 @@
+<html>
+
+<style>
+canvas {
+  border: 1px solid #000;
+}
+</style>
+
+<script>
+const values = [
+  { label: '新潟', value: 591 },
+  { label: '北海道', value: 540 },
+  { label: '秋田', value: 458 },
+  { label: '山形', value: 359 },
+  { label: '宮城', value: 344 },
+  { label: '福島', value: 327 },
+  { label: '茨城', value: 316 },
+  { label: '栃木', value: 283 },
+  { label: '千葉', value: 265 },
+  { label: '岩手', value: 249 },
+]
+
+const CANVAS_HEIGHT = 600
+const CANVAS_WIDTH = 600
+
+const CHART_START_X = 30
+const CHART_START_Y = 30
+const CHART_HEIGHT = 300
+const CHART_WIDTH = 500
+
+const VERTICAL_SPAN_NUM = 10
+
+const scale = CHART_HEIGHT / 1000
+const offset = 0
+
+function drawMemory(ctx, startX, startY, width, memoryList) {
+  for (let i = 0; i < memoryList.length; i++) {
+    const y = startY + i * scale
+    ctx.beginPath()
+    ctx.font = '12px Arial'
+    ctx.fillStyle = '#000'
+    ctx.textAlign = 'right'
+    ctx.fillText(memoryList[memoryList.length - 1 - i], startX - 5, y + 5)
+
+    ctx.moveTo(startX, y)
+    ctx.lineTo(startX + width, y)
+    ctx.strokeStyle = '#000'
+    ctx.stroke()
+  }
+}
+
+function drawChartBox(ctx, x, y, width, height) {
+  ctx.beginPath()
+  ctx.rect(x, y, width, height)
+  ctx.strokeStyle = "#000"
+  ctx.stroke()
+}
+
+function drawBar(ctx, startX, startY, scale, spane, values, color) {
+  const BAR_WIDTH = 30
+  const BAR_MARGIN = 10
+  
+
+  for (let i = 0; i < values.length; i++) {
+    const x = startX + i * (BAR_WIDTH + BAR_MARGIN)
+    const height = values[i].value * scale
+    ctx.beginPath()
+    ctx.rect(x, startY - height, BAR_WIDTH, height)
+    ctx.fillStyle = color
+    ctx.fill()
+    ctx.stroke()
+  }
+}
+
+function drawBarChart() {
+  const canvas = document.getElementById('barChart')
+  canvas.width = 600
+  canvas.height = 600
+  canvas.style.border = 'none'
+
+  
+
+  
+
+
+  const ctx = canvas.getContext('2d')
+  drawRect(ctx, RECT_START_X, RECT_START_Y, RECT_WIDTH, RECT_HEIGHT, '#000')
+  drawMemory(ctx, VERTICAL_SCALE, RECT_START_X, RECT_START_Y, RECT_WIDTH, new Array(11).fill(0).map((_, i) => i * 100))
+  drawBar(ctx, RECT_START_X * 2, RECT_START_Y + RECT_HEIGHT, VERTICAL_SCALE / 100, values, '#56f')
+}
+</script>
+
+<body onload="drawBarChart()">
+  <canvas id="barChart"></canvas>
+</body> 
+
+</html>

@@ -1,0 +1,127 @@
+<html>
+
+<style>
+canvas {
+  border: 1px solid #000;
+}
+</style>
+
+<script>
+const values = [
+  { label: '新潟', value: 591 },
+  { label: '北海道', value: 540 },
+  { label: '秋田', value: 458 },
+  { label: '山形', value: 359 },
+  { label: '宮城', value: 344 },
+  { label: '福島', value: 327 },
+  { label: '茨城', value: 316 },
+  { label: '栃木', value: 283 },
+  { label: '千葉', value: 265 },
+  { label: '岩手', value: 249 },
+]
+
+const CANVAS_WIDTH = 500
+const CANVAS_HEIGHT = 500
+
+const MARGIN_TOP = 30
+const MARGIN_RIGHT = 30
+
+const LABEL_AREA_HEIGHT = 30
+
+const BAR_INTERVAL = 20
+const BAR_WIDTH = 30
+
+const SCALE_AREA_WIDTH = 30
+
+let mouseDown = false
+let mousePosX = 0
+let offsetX = 0
+
+function init() {
+  const canvas = document.getElementById('barChart')
+  canvas.width = CANVAS_WIDTH
+  canvas.height = CANVAS_HEIGHT
+  const ctx = canvas.getContext('2d')
+  canvas.addEventListener("mousedown", function(e) {
+    mouseDown = true
+  })
+  canvas.addEventListener("mouseup", function(e) {
+    mouseDown = false
+  })
+  canvas.addEventListener("mousemove", function(e) {
+    if (mouseDown) {
+      offsetX += e.offsetX - mousePosX
+      drawBarChart()
+    }
+    mousePosX = e.offsetX
+  })
+  drawBarChart()
+}
+
+function drawBarChart() {
+  const canvas = document.getElementById('barChart')
+  canvas.width = CANVAS_WIDTH
+  canvas.height = CANVAS_HEIGHT
+  const ctx = canvas.getContext('2d')
+  const frameWidth = CANVAS_WIDTH - MARGIN_RIGHT - SCALE_AREA_WIDTH
+  const frameHeight = CANVAS_HEIGHT - MARGIN_TOP - LABEL_AREA_HEIGHT
+  const frameX = SCALE_AREA_WIDTH
+  const frameY = MARGIN_TOP
+  
+
+  // 棒グラフを描画
+  for (let i = 0; i < values.length; i++) {
+    const barX = frameX + BAR_INTERVAL * (i + 1) + BAR_WIDTH * i + offsetX
+    const barHeight = values[i].value * frameHeight / 1000
+    const barY = frameY + frameHeight - barHeight
+    const height = values[i].value * frameHeight / 1000
+    ctx.beginPath()
+    ctx.rect(barX, barY, BAR_WIDTH, height)
+    ctx.fillStyle = '#00f'
+    ctx.fill()
+    ctx.stroke()
+
+    ctx.font = '12px Arial'
+    ctx.fillStyle = '#000'
+    ctx.textAlign = 'center'
+    ctx.fillText(values[i].label, barX + BAR_WIDTH / 2, frameY + frameHeight + 15)
+  }
+
+  // はみ出た分を塗りつぶす
+  ctx.beginPath()
+  ctx.rect(SCALE_AREA_WIDTH + frameWidth, MARGIN_TOP, frameWidth, frameHeight + LABEL_AREA_HEIGHT)
+  ctx.rect(0, 0, SCALE_AREA_WIDTH, CANVAS_HEIGHT)
+  ctx.fillStyle = '#fff'
+  ctx.fill()
+
+  // フレームを描画
+  ctx.beginPath()
+  ctx.rect(SCALE_AREA_WIDTH, MARGIN_TOP, frameWidth, frameHeight)
+  ctx.strokeStyle = '#000'
+  ctx.stroke()
+
+  const SCALE_COUNT = 10
+  // 目盛りを描画
+  for (let i = 0; i <= SCALE_COUNT; i++) {
+    const y = frameY + frameHeight / SCALE_COUNT * i
+    ctx.beginPath()
+    ctx.moveTo(frameX, y)
+    ctx.lineTo(frameX + frameWidth, y)
+    ctx.strokeStyle = '#333'
+    ctx.stroke()
+
+    ctx.font = '12px Arial'
+    ctx.fillStyle = '#000'
+    ctx.textAlign = 'right'
+    ctx.fillText(1000 - 100 * i, frameX - 5, y + 5)
+  }
+
+  
+}
+</script>
+
+<body onload="init()">
+  <canvas id="barChart"></canvas>
+</body> 
+
+</html>

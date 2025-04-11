@@ -1,0 +1,100 @@
+<html>
+
+<style>
+canvas {
+  border: 1px solid #000;
+}
+</style>
+
+<script>
+const values = [
+  { label: '新潟', value: 591 },
+  { label: '北海道', value: 540 },
+  { label: '秋田', value: 458 },
+  { label: '山形', value: 359 },
+  { label: '宮城', value: 344 },
+  { label: '福島', value: 327 },
+  { label: '茨城', value: 316 },
+  { label: '栃木', value: 283 },
+  { label: '千葉', value: 265 },
+  { label: '岩手', value: 249 },
+]
+
+function drawHorizontalLine(ctx, scale, startX, startY, width, height) {
+  ctx.beginPath()
+  let y = startY
+  while (y <= height) {
+    ctx.moveTo(startX, y)
+    ctx.lineTo(width + startX, y)
+    y += scale
+  }
+  ctx.strokeStyle = "#aaa"
+  ctx.stroke()
+}
+
+function drawRect(ctx, x, y, width, height, color) {
+  ctx.beginPath()
+  ctx.rect(x, y, width, height)
+  ctx.strokeStyle = color
+  ctx.stroke()
+}
+
+function drawVerticalMemoryText(ctx, scale, startX, startY, list) {
+  ctx.beginPath()
+  ctx.font = '12px Arial'
+  ctx.fillStyle = '#000'
+  ctx.textAlign = 'right'
+  let y = startY
+  for (const item of list) {
+    ctx.fillText(item, startX, y)
+    y += scale
+  }
+}
+
+function drawBar(ctx, x, startY, height, color) {
+  ctx.beginPath()
+  ctx.rect(x, startY - height, 30, height)
+  ctx.fillStyle = color
+  ctx.fill()
+  ctx.stroke()
+}
+
+function drawBarChart() {
+  const canvas = document.getElementById('barChart')
+  canvas.width = 600
+  canvas.height = 600
+  canvas.style.border = 'none'
+
+  const VERTICAL_SCALE = 30
+  const HORIZONTAL_SCALE = 50
+
+  const RECT_START_X = 30
+  const RECT_START_Y = 30
+  const RECT_HEIGHT = 300
+  const RECT_WIDTH = 500
+
+
+  const ctx = canvas.getContext('2d')
+  drawRect(ctx, RECT_START_X, RECT_START_Y, RECT_WIDTH, RECT_HEIGHT, '#000')
+  drawHorizontalLine(ctx, VERTICAL_SCALE, RECT_START_X, RECT_START_Y, RECT_WIDTH, RECT_HEIGHT)
+  drawVerticalMemoryText(ctx, VERTICAL_SCALE, RECT_START_X - 5, RECT_START_Y, [1000, 900, 800, 700, 600, 500, 400, 300, 200, 100, 0])
+  for (let i = 0; i < values.length; i++) {
+    const value = values[i]
+    const x = RECT_START_X + 10 + i * HORIZONTAL_SCALE
+    const y = RECT_START_Y + RECT_HEIGHT - value.value
+    const width = 30
+    const height = value.value
+    drawBar(ctx, x, RECT_START_Y + RECT_HEIGHT, height * VERTICAL_SCALE / 100, '#56f')
+    ctx.font = '12px Arial'
+    ctx.fillStyle = '#000'
+    ctx.textAlign = 'center'
+    ctx.fillText(value.label, x + width / 2, RECT_START_Y + RECT_HEIGHT + 20)
+  }
+}
+</script>
+
+<body onload="drawBarChart()">
+  <canvas id="barChart"></canvas>
+</body> 
+
+</html>

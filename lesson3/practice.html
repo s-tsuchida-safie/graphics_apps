@@ -1,0 +1,204 @@
+<html>
+
+<style>
+canvas {
+  border: 1px solid #000;
+}
+</style>
+
+<script>
+  const CANVAS_WIDTH = 1000
+  const CANVAS_HEIGHT = 600
+  const MARGIN_TOP = 60
+  const MARGIN_RIGHT = 30
+  const MARGIN_LEFT = 80
+  const MARGIN_BOTTOM = 60
+  const FRAME_WIDTH = CANVAS_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
+  const FRAME_HEIGHT = CANVAS_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM
+
+  const CHART_BAR_WIDTH = 50
+
+  let offsetX = 0
+  let scaleX = 1
+  let mouseDown = false
+  let mousePosX = 0
+  
+  const getChartLimitAmount = (data) => {
+    return 180000000000
+  }
+
+  const getScaleYDivisionCount = () => {
+    return 5
+  }
+
+  const getBarHeight = (amount) => {
+    return amount / getChartLimitAmount() * FRAME_HEIGHT
+  }
+
+  const getBarWidth = (dataSize) => {
+    return FRAME_WIDTH * scaleX / dataSize
+  }
+
+  const chartX2CanvasX = (x) => {
+    return scaleX * (x + offsetX)
+  }
+
+  const canvasX2ChartX = (x) => {
+    return x / scaleX - offsetX
+  }
+
+  const canvasY2ChartY = (y) => {
+    return (FRAME_HEIGHT - y + MARGIN_TOP) / FRAME_HEIGHT * getChartLimitAmount()
+  }
+
+  const formatWithUnit = (value) => {
+    let tempValue = value
+    const params = [{
+      unit: '兆',
+      value: 1000000000
+    }, {
+      unit: '億',
+      value: 1000000
+    }]
+    let text = ''
+    for (const param of params) {
+      const result = Math.floor(tempValue / param.value)
+      if (result > 0) {
+        text += result + param.unit
+        tempValue -= result * param.value
+      }
+    }
+    return text
+  }
+
+  const drawBarChart = (data) => {
+    const canvas = document.getElementById('barChart')
+    const ctx = canvas.getContext('2d')
+
+    // グラフのフレームを描画
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+    ctx.beginPath()
+    ctx.rect(MARGIN_LEFT, MARGIN_TOP, FRAME_WIDTH, FRAME_HEIGHT)
+    ctx.stroke()
+
+    // 横のグリッドを描画
+    const gridHeight = FRAME_HEIGHT / (getScaleYDivisionCount() + 1)
+    for (let i = 0; i < getScaleYDivisionCount(); i++) {
+      ctx.beginPath()
+      ctx.moveTo(MARGIN_LEFT, MARGIN_TOP + gridHeight * (i + 1))
+      ctx.lineTo(MARGIN_LEFT + FRAME_WIDTH, MARGIN_TOP + gridHeight * (i + 1))
+      ctx.stroke()
+    }
+
+
+    // X軸の目盛りを描画
+    const gridWidth = FRAME_WIDTH / 5
+
+    // 棒グラフを描画
+    const categoryColor = {
+      "国家機関費": "#ff3000ff",
+      "地方財政費": "#9fbf52ff",
+      "防衛関係費": "#527dbfff",
+      "国土保全及び開発費": "#52bf8dff",
+      "産業経済費": "#bf526fff",
+      "教育文化費": "#52bf96ff",
+      "社会保障関係費": "#f80",
+      "恩給費": "#c8ff00ff",
+      "国債費": "#bf5252ff",
+      "その他": "#97bf52ff",
+    }
+
+    for (let i = 0; i < data.length; i++) {
+      const barHeight = getBarHeight(data[i]['合計'])
+      const barX = chartX2CanvasX(CHART_BAR_WIDTH * i)
+      const barWidth = (chartX2CanvasX(CHART_BAR_WIDTH * (i + 1)) - barX) / 2
+      let barY = MARGIN_TOP + FRAME_HEIGHT - barHeight
+      // ctx.beginPath()
+      for (const category in data[i]) {
+        if (category !== 'year' && category !== '合計') {
+          ctx.beginPath()
+          ctx.rect(barX, barY, barWidth, getBarHeight(data[i][category]))
+          ctx.fillStyle = categoryColor[category]
+          ctx.fill()
+          // ctx.stroke()
+          barY += getBarHeight(data[i][category])
+        }
+      }
+
+      ctx.font = '12px Arial'
+      ctx.fillStyle = '#000'
+      ctx.textAlign = 'center'
+      ctx.fillText(`${data[i]['year']}`, barX + barWidth / 2, MARGIN_TOP + FRAME_HEIGHT + 15)
+    }
+
+    // はみ出た分を塗りつぶす
+    ctx.beginPath()
+    ctx.rect(MARGIN_LEFT + FRAME_WIDTH, MARGIN_TOP, MARGIN_RIGHT, FRAME_HEIGHT + MARGIN_BOTTOM)
+    ctx.rect(0, 0, MARGIN_LEFT, CANVAS_HEIGHT)
+    ctx.fillStyle = '#fff'
+    ctx.fill()
+
+    // Y軸の目盛りの数字を描画
+    for (let i = 0; i < getScaleYDivisionCount() + 2; i++) {
+      ctx.font = '12px Arial'
+      ctx.fillStyle = '#000'
+      ctx.textAlign = 'right'
+      const yAxisValue = getChartLimitAmount() * (getScaleYDivisionCount() + 1 - i) / (getScaleYDivisionCount() + 1)
+      ctx.fillText(formatWithUnit(yAxisValue), MARGIN_LEFT - 5, MARGIN_TOP + FRAME_HEIGHT - getBarHeight(yAxisValue) + 5)
+    }
+
+    // グラフのタイトルを描画
+    ctx.font = '16px Arial'
+    ctx.fillStyle = '#000'
+    ctx.textAlign = 'center'
+    ctx.fillText('一般会計歳出目的別歳出額', CANVAS_WIDTH / 2, MARGIN_TOP - 20)
+  }
+
+  async function init() {
+    const json = await fetch('data.json').then((res) => res.json())
+    const data = json.data
+    const canvas = document.getElementById('barChart')
+    canvas.width = CANVAS_WIDTH
+    canvas.height = CANVAS_HEIGHT
+    const ctx = canvas.getContext('2d')
+
+    canvas.addEventListener("mousedown", function(e) {
+    mouseDown = true
+    })
+    canvas.addEventListener("mouseup", function(e) {
+      mouseDown = false
+    })
+    canvas.addEventListener("mousemove", function(e) {
+      if (mouseDown) {
+        offsetX += e.offsetX - mousePosX
+        drawBarChart(data)
+      }
+      mousePosX = e.offsetX
+      document.getElementById("x").innerHTML = `${canvasX2ChartX(mousePosX) / CHART_BAR_WIDTH}`
+      document.getElementById("y").innerHTML = `${canvasY2ChartY(e.offsetY)}`
+    })
+
+    canvas.addEventListener("wheel", function(e) {
+      let newScaleX = scaleX
+      if (e.deltaY > 0) {
+        newScaleX -= 0.1
+      } else {
+        newScaleX += 0.1
+      }
+      offsetX += (1/newScaleX - 1/scaleX) * mousePosX
+      scaleX = newScaleX
+      drawBarChart(data)
+    })
+    
+    drawBarChart(data)
+    
+  }
+</script>
+
+<body onload="init()">
+  <canvas id="barChart"></canvas>
+  <div id="x">x</div>
+  <div id="y">y</div>
+</body> 
+
+</html>
