@@ -9,27 +9,37 @@ canvas {
 <script>
   const CANVAS_WIDTH = 1000
   const CANVAS_HEIGHT = 600
+
   const MARGIN_TOP = 60
   const MARGIN_RIGHT = 30
   const MARGIN_LEFT = 80
   const MARGIN_BOTTOM = 60
+
   const FRAME_WIDTH = CANVAS_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
   const FRAME_HEIGHT = CANVAS_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM
 
   const CHART_BAR_WIDTH = 50
 
   const CATEGORY_COLOR = {
-      "国家機関費": "#ff3000ff",
-      "地方財政費": "#9fbf52ff",
-      "防衛関係費": "#527dbfff",
-      "国土保全及び開発費": "#52bf8dff",
-      "産業経済費": "#bf526fff",
-      "教育文化費": "#52bf96ff",
-      "社会保障関係費": "#f80",
-      "恩給費": "#c8ff00ff",
-      "国債費": "#bf5252ff",
-      "その他": "#97bf52ff",
-    }
+    "国家機関費": "#c20",
+    "地方財政費": "#385",
+    "防衛関係費": "#527dbfff",
+    "国土保全及び開発費": "#52bf8dff",
+    "産業経済費": "#bf526fff",
+    "教育文化費": "#52bf96ff",
+    "社会保障関係費": "#46a",
+    "恩給費": "#f8ff00cc",
+    "国債費": "#bf5252ff",
+    "その他": "#97bf52ff",
+  }
+
+  const Y_UNIT_LIST = [{
+    unit: '兆',
+    value: 1000000000
+  }, {
+    unit: '億',
+    value: 1000000
+  }]
 
   let offsetX = 0
   let scaleX = 1
@@ -42,7 +52,7 @@ canvas {
   }
 
   const getYGridCount = () => {
-    return 5
+    return 6
   }
 
   const getBarHeight = (amount) => {
@@ -71,19 +81,12 @@ canvas {
 
   const getYWithUnitText = (y) => {
     let tempY = y
-    const yUnitTextList = [{
-      unit: '兆',
-      y: 1000000000
-    }, {
-      unit: '億',
-      y: 1000000
-    }]
     let text = ''
-    for (const yUnitText of yUnitTextList) {
-      const result = Math.floor(tempY / yUnitText.y)
-      if (result > 0) {
-        text += result + yUnitText.unit
-        tempY -= result * yUnitText.y
+    for (const yUnit of Y_UNIT_LIST) {
+      const y = Math.floor(tempY / yUnit.value)
+      if (y > 0) {
+        text += y + yUnit.unit
+        tempY -= y * yUnit.value
       }
     }
     return text
@@ -99,10 +102,9 @@ canvas {
     ctx.rect(MARGIN_LEFT, MARGIN_TOP, FRAME_WIDTH, FRAME_HEIGHT)
     ctx.stroke()
 
-    // 横のグリッドを描画
+    // y軸のグリッドを描画
     const yGridCount = getYGridCount()
     const yLimit = getYLimit()
-    const gridHeight = FRAME_HEIGHT / (yGridCount + 1)
     for (let i = 1; i <= yGridCount; i++) {
       const canvasX = MARGIN_LEFT
       const y = i * yLimit / yGridCount
@@ -167,12 +169,15 @@ canvas {
     ctx.fill()
 
     // Y軸の目盛りを描画
-    for (let i = 0; i < getYGridCount() + 2; i++) {
+    for (let i = 1; i <= yGridCount; i++) {
       ctx.font = '12px Arial'
       ctx.fillStyle = '#000'
       ctx.textAlign = 'right'
-      const yAxisValue = getYLimit() * (getYGridCount() + 1 - i) / (getYGridCount() + 1)
-      ctx.fillText(getYWithUnitText(yAxisValue), MARGIN_LEFT - 5, MARGIN_TOP + FRAME_HEIGHT - getBarHeight(yAxisValue) + 5)
+      const y = i * yLimit / yGridCount
+      const yGraphScaleText = getYWithUnitText(y)
+      const canvasX = MARGIN_LEFT
+      const canvasY = yToCanvasY(y)
+      ctx.fillText(yGraphScaleText, canvasX - 15, canvasY)
     }
 
     // グラフのタイトルを描画
@@ -209,10 +214,10 @@ canvas {
       })
       document.getElementById("x").innerHTML = `x: ${hoveredBarData ? hoveredBarData.x.year : 'なし'}`
       const y = canvasYToY(e.offsetY)
-      const yData = hoveredBarData?.y?.find((item) => {
+      const hoveredYData = hoveredBarData?.y?.find((item) => {
         return y >= item.start && y <= item.end
       })
-      document.getElementById("y").innerHTML = `x: ${yData?.category ?? 'なし'}`
+      document.getElementById("y").innerHTML = `x: ${hoveredYData?.category ?? 'なし'}`
     })
 
     canvas.addEventListener("wheel", function(e) {
@@ -225,7 +230,6 @@ canvas {
       const newOffsetX = (1/newScaleX - 1/scaleX) * mousePosX + offsetX
       offsetX = newOffsetX
       scaleX = newScaleX
-      console.log(`scaleX: ${scaleX}`)
       drawBarChart(data)
     })
     
