@@ -22,6 +22,7 @@ canvas {
   let scaleX = 1
   let mouseDown = false
   let mousePosX = 0
+  let currentChartData = []
   
   const getChartLimitAmount = (data) => {
     return 180000000000
@@ -49,6 +50,10 @@ canvas {
 
   const canvasY2ChartY = (y) => {
     return (FRAME_HEIGHT - y + MARGIN_TOP) / FRAME_HEIGHT * getChartLimitAmount()
+  }
+
+  const chartY2CanvasY = (y) => {
+    return FRAME_HEIGHT - y / getChartLimitAmount() * FRAME_HEIGHT + MARGIN_TOP
   }
 
   const formatWithUnit = (value) => {
@@ -110,25 +115,40 @@ canvas {
 
     for (let i = 0; i < data.length; i++) {
       const barHeight = getBarHeight(data[i]['合計'])
-      const barX = chartX2CanvasX(CHART_BAR_WIDTH * i)
-      const barWidth = (chartX2CanvasX(CHART_BAR_WIDTH * (i + 1)) - barX) / 2
-      let barY = MARGIN_TOP + FRAME_HEIGHT - barHeight
-      // ctx.beginPath()
+      const x = chartX2CanvasX(CHART_BAR_WIDTH * i)
+      const barWidth = (chartX2CanvasX(CHART_BAR_WIDTH * (i + 1)) - x) / 2
+      let amount = 0
+      const chartYData = []
       for (const category in data[i]) {
         if (category !== 'year' && category !== '合計') {
           ctx.beginPath()
-          ctx.rect(barX, barY, barWidth, getBarHeight(data[i][category]))
+          const y = chartY2CanvasY(amount)
+          const categoryAmount = data[i][category]
+          const categoryHeight = chartY2CanvasY(amount + categoryAmount) - y
+          ctx.rect(x, y, barWidth, categoryHeight)
           ctx.fillStyle = categoryColor[category]
           ctx.fill()
-          // ctx.stroke()
-          barY += getBarHeight(data[i][category])
+          amount += categoryAmount
+          console.log(`y: ${y}, amount: ${amount}, categoryAmount: ${categoryAmount}`)
+          chartYData.push({
+            category,
+            start: amount,
+            end: amount + categoryAmount,
+          })
         }
       }
-
+      currentChartData.push({
+        year: data[i]['year'],
+        x: {
+          start: x,
+          end: x + barWidth,
+        },
+        y: chartYData,
+      })
       ctx.font = '12px Arial'
       ctx.fillStyle = '#000'
       ctx.textAlign = 'center'
-      ctx.fillText(`${data[i]['year']}`, barX + barWidth / 2, MARGIN_TOP + FRAME_HEIGHT + 15)
+      ctx.fillText(`${data[i]['year']}`, x + barWidth / 2, MARGIN_TOP + FRAME_HEIGHT + 15)
     }
 
     // はみ出た分を塗りつぶす
@@ -174,8 +194,19 @@ canvas {
         drawBarChart(data)
       }
       mousePosX = e.offsetX
-      document.getElementById("x").innerHTML = `${canvasX2ChartX(mousePosX) / CHART_BAR_WIDTH}`
-      document.getElementById("y").innerHTML = `${canvasY2ChartY(e.offsetY)}`
+      const x = canvasX2ChartX(mousePosX)
+      const xData = currentChartData.find((item) => {
+        return item.x.start <= x && item.x.end >= x
+      })
+      document.getElementById("x").innerHTML = `${xData.year}`
+      const y = canvasY2ChartY(e.offsetY)
+      console.log(`y: ${y}`)
+      console.log(`xData: ${JSON.stringify(xData)}`)
+      const yData = xData?.y?.find((item) => {
+        return item.start <= y && item.end >= y
+      })
+      document.getElementById("y").innerHTML = `${yData?.category ?? ''}`
+      console.log(xData)
     })
 
     canvas.addEventListener("wheel", function(e) {
@@ -197,8 +228,11 @@ canvas {
 
 <body onload="init()">
   <canvas id="barChart"></canvas>
-  <div id="x">x</div>
-  <div id="y">y</div>
+  <div style="display: flex;">
+    <div id="x">x</div>
+    <div id="y">y</div>
+  </div>
+  
 </body> 
 
 </html>
