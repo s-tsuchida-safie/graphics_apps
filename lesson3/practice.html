@@ -18,59 +18,72 @@ canvas {
 
   const CHART_BAR_WIDTH = 50
 
+  const CATEGORY_COLOR = {
+      "国家機関費": "#ff3000ff",
+      "地方財政費": "#9fbf52ff",
+      "防衛関係費": "#527dbfff",
+      "国土保全及び開発費": "#52bf8dff",
+      "産業経済費": "#bf526fff",
+      "教育文化費": "#52bf96ff",
+      "社会保障関係費": "#f80",
+      "恩給費": "#c8ff00ff",
+      "国債費": "#bf5252ff",
+      "その他": "#97bf52ff",
+    }
+
   let offsetX = 0
   let scaleX = 1
   let mouseDown = false
   let mousePosX = 0
   let currentChartData = []
   
-  const getChartLimitAmount = (data) => {
+  const getYLimit = (data) => {
     return 180000000000
   }
 
-  const getScaleYDivisionCount = () => {
+  const getYGridCount = () => {
     return 5
   }
 
   const getBarHeight = (amount) => {
-    return amount / getChartLimitAmount() * FRAME_HEIGHT
+    return amount / getYLimit() * FRAME_HEIGHT
   }
 
   const getBarWidth = (dataSize) => {
     return FRAME_WIDTH * scaleX / dataSize
   }
 
-  const chartX2CanvasX = (x) => {
+  const xToCancasX = (x) => {
     return scaleX * (x + offsetX)
   }
 
-  const canvasX2ChartX = (x) => {
-    return x / scaleX - offsetX
+  const canvasXToX = (canvasX) => {
+    return canvasX / scaleX - offsetX
   }
 
-  const canvasY2ChartY = (y) => {
-    return (FRAME_HEIGHT - y + MARGIN_TOP) / FRAME_HEIGHT * getChartLimitAmount()
+  const canvasYToY = (canvasY) => {
+    return (FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT * getYLimit()
   }
 
-  const chartY2CanvasY = (y) => {
-    return FRAME_HEIGHT - y / getChartLimitAmount() * FRAME_HEIGHT + MARGIN_TOP
+  const yToCanvasY = (y) => {
+    return FRAME_HEIGHT - y / getYLimit() * FRAME_HEIGHT + MARGIN_TOP
   }
 
-  const formatWithUnit = (value) => {
-    let tempValue = value
-    const params = [{
+  const getYWithUnitText = (y) => {
+    let tempY = y
+    const yUnitTextList = [{
       unit: '兆',
-      value: 1000000000
+      y: 1000000000
     }, {
       unit: '億',
-      value: 1000000
+      y: 1000000
     }]
     let text = ''
-    for (const param of params) {
-      const result = Math.floor(tempValue / param.value)
+    for (const yUnitText of yUnitTextList) {
+      const result = Math.floor(tempY / yUnitText.y)
       if (result > 0) {
-        text += result + param.unit
-        tempValue -= result * param.value
+        text += result + yUnitText.unit
+        tempY -= result * yUnitText.y
       }
     }
     return text
@@ -87,68 +100,63 @@ canvas {
     ctx.stroke()
 
     // 横のグリッドを描画
-    const gridHeight = FRAME_HEIGHT / (getScaleYDivisionCount() + 1)
-    for (let i = 0; i < getScaleYDivisionCount(); i++) {
+    const yGridCount = getYGridCount()
+    const yLimit = getYLimit()
+    const gridHeight = FRAME_HEIGHT / (yGridCount + 1)
+    for (let i = 1; i <= yGridCount; i++) {
+      const canvasX = MARGIN_LEFT
+      const y = i * yLimit / yGridCount
+      const canvasY = yToCanvasY(y)
       ctx.beginPath()
-      ctx.moveTo(MARGIN_LEFT, MARGIN_TOP + gridHeight * (i + 1))
-      ctx.lineTo(MARGIN_LEFT + FRAME_WIDTH, MARGIN_TOP + gridHeight * (i + 1))
+      ctx.moveTo(canvasX, canvasY)
+      ctx.lineTo(canvasX + FRAME_WIDTH, canvasY)
       ctx.stroke()
     }
 
-
-    // X軸の目盛りを描画
-    const gridWidth = FRAME_WIDTH / 5
-
-    // 棒グラフを描画
-    const categoryColor = {
-      "国家機関費": "#ff3000ff",
-      "地方財政費": "#9fbf52ff",
-      "防衛関係費": "#527dbfff",
-      "国土保全及び開発費": "#52bf8dff",
-      "産業経済費": "#bf526fff",
-      "教育文化費": "#52bf96ff",
-      "社会保障関係費": "#f80",
-      "恩給費": "#c8ff00ff",
-      "国債費": "#bf5252ff",
-      "その他": "#97bf52ff",
-    }
-
+    // 積み上げ棒グラフを描画
     for (let i = 0; i < data.length; i++) {
       const barHeight = getBarHeight(data[i]['合計'])
-      const x = chartX2CanvasX(CHART_BAR_WIDTH * i)
-      const barWidth = (chartX2CanvasX(CHART_BAR_WIDTH * (i + 1)) - x) / 2
-      let amount = 0
-      const chartYData = []
+      const x = CHART_BAR_WIDTH * i
+      const canvasX = xToCancasX(CHART_BAR_WIDTH * i)
+      const nextX = CHART_BAR_WIDTH * (i + 1)
+      const barWidth = (xToCancasX(nextX) - canvasX) / 2
+      let y = 0
+      const yList = []
       for (const category in data[i]) {
         if (category !== 'year' && category !== '合計') {
           ctx.beginPath()
-          const y = chartY2CanvasY(amount)
-          const categoryAmount = data[i][category]
-          const categoryHeight = chartY2CanvasY(amount + categoryAmount) - y
-          ctx.rect(x, y, barWidth, categoryHeight)
-          ctx.fillStyle = categoryColor[category]
+          const canvasY = yToCanvasY(y)
+          const categoryY = data[i][category]
+          const categoryHeight = yToCanvasY(y + categoryY) - canvasY
+          ctx.rect(canvasX, canvasY, barWidth, categoryHeight)
+          ctx.fillStyle = CATEGORY_COLOR[category]
           ctx.fill()
-          amount += categoryAmount
-          console.log(`y: ${y}, amount: ${amount}, categoryAmount: ${categoryAmount}`)
-          chartYData.push({
+          yList.push({
             category,
-            start: amount,
-            end: amount + categoryAmount,
+            start: y,
+            end: y + categoryY
           })
+          y += categoryY
         }
       }
       currentChartData.push({
-        year: data[i]['year'],
         x: {
+          year: data[i]['year'],
           start: x,
-          end: x + barWidth,
+          end: canvasXToX(canvasX + barWidth),
         },
-        y: chartYData,
+        y: yList,
       })
+
+      // X軸の目盛りを描画
       ctx.font = '12px Arial'
       ctx.fillStyle = '#000'
       ctx.textAlign = 'center'
-      ctx.fillText(`${data[i]['year']}`, x + barWidth / 2, MARGIN_TOP + FRAME_HEIGHT + 15)
+      const graphScalePos = {
+        x: canvasX + barWidth / 2,
+        y: MARGIN_TOP + FRAME_HEIGHT + 15
+      }
+      ctx.fillText(`${data[i]['year']}`, graphScalePos.x, graphScalePos.y)
     }
 
     // はみ出た分を塗りつぶす
@@ -158,13 +166,13 @@ canvas {
     ctx.fillStyle = '#fff'
     ctx.fill()
 
-    // Y軸の目盛りの数字を描画
-    for (let i = 0; i < getScaleYDivisionCount() + 2; i++) {
+    // Y軸の目盛りを描画
+    for (let i = 0; i < getYGridCount() + 2; i++) {
       ctx.font = '12px Arial'
       ctx.fillStyle = '#000'
       ctx.textAlign = 'right'
-      const yAxisValue = getChartLimitAmount() * (getScaleYDivisionCount() + 1 - i) / (getScaleYDivisionCount() + 1)
-      ctx.fillText(formatWithUnit(yAxisValue), MARGIN_LEFT - 5, MARGIN_TOP + FRAME_HEIGHT - getBarHeight(yAxisValue) + 5)
+      const yAxisValue = getYLimit() * (getYGridCount() + 1 - i) / (getYGridCount() + 1)
+      ctx.fillText(getYWithUnitText(yAxisValue), MARGIN_LEFT - 5, MARGIN_TOP + FRAME_HEIGHT - getBarHeight(yAxisValue) + 5)
     }
 
     // グラフのタイトルを描画
@@ -190,23 +198,21 @@ canvas {
     })
     canvas.addEventListener("mousemove", function(e) {
       if (mouseDown) {
-        offsetX += e.offsetX - mousePosX
+        newOffsetX = e.offsetX - mousePosX + offsetX
+        offsetX = newOffsetX
         drawBarChart(data)
       }
       mousePosX = e.offsetX
-      const x = canvasX2ChartX(mousePosX)
-      const xData = currentChartData.find((item) => {
-        return item.x.start <= x && item.x.end >= x
+      const x = canvasXToX(mousePosX)
+      const hoveredBarData = currentChartData.find((item) => {
+        return x >= item.x.start && x <= item.x.end
       })
-      document.getElementById("x").innerHTML = `${xData.year}`
-      const y = canvasY2ChartY(e.offsetY)
-      console.log(`y: ${y}`)
-      console.log(`xData: ${JSON.stringify(xData)}`)
-      const yData = xData?.y?.find((item) => {
-        return item.start <= y && item.end >= y
+      document.getElementById("x").innerHTML = `x: ${hoveredBarData ? hoveredBarData.x.year : 'なし'}`
+      const y = canvasYToY(e.offsetY)
+      const yData = hoveredBarData?.y?.find((item) => {
+        return y >= item.start && y <= item.end
       })
-      document.getElementById("y").innerHTML = `${yData?.category ?? ''}`
-      console.log(xData)
+      document.getElementById("y").innerHTML = `x: ${yData?.category ?? 'なし'}`
     })
 
     canvas.addEventListener("wheel", function(e) {
@@ -216,8 +222,10 @@ canvas {
       } else {
         newScaleX += 0.1
       }
-      offsetX += (1/newScaleX - 1/scaleX) * mousePosX
+      const newOffsetX = (1/newScaleX - 1/scaleX) * mousePosX + offsetX
+      offsetX = newOffsetX
       scaleX = newScaleX
+      console.log(`scaleX: ${scaleX}`)
       drawBarChart(data)
     })
     
@@ -228,9 +236,9 @@ canvas {
 
 <body onload="init()">
   <canvas id="barChart"></canvas>
-  <div style="display: flex;">
-    <div id="x">x</div>
-    <div id="y">y</div>
+  <div>
+    <div id="x">x: </div>
+    <div id="y">y: </div>
   </div>
   
 </body> 
