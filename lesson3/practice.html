@@ -41,26 +41,17 @@ canvas {
     value: 1000000
   }]
 
+  const Y_LIMIT = 180000000000
+
   let offsetX = 0
   let scaleX = 1
+  let scaleY = 1
   let mouseDown = false
   let mousePosX = 0
   let currentChartData = []
   
-  const getYLimit = (data) => {
-    return 180000000000
-  }
-
   const getYGridCount = () => {
     return 6
-  }
-
-  const getBarHeight = (amount) => {
-    return amount / getYLimit() * FRAME_HEIGHT
-  }
-
-  const getBarWidth = (dataSize) => {
-    return FRAME_WIDTH * scaleX / dataSize
   }
 
   const xToCancasX = (x) => {
@@ -72,11 +63,11 @@ canvas {
   }
 
   const canvasYToY = (canvasY) => {
-    return (FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT * getYLimit()
+    return (FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT * Y_LIMIT
   }
 
   const yToCanvasY = (y) => {
-    return FRAME_HEIGHT - y / getYLimit() * FRAME_HEIGHT + MARGIN_TOP
+    return FRAME_HEIGHT - y / Y_LIMIT * FRAME_HEIGHT + MARGIN_TOP
   }
 
   const getYWithUnitText = (y) => {
@@ -104,7 +95,7 @@ canvas {
 
     // y軸のグリッドを描画
     const yGridCount = getYGridCount()
-    const yLimit = getYLimit()
+    const yLimit = Y_LIMIT
     for (let i = 1; i <= yGridCount; i++) {
       const canvasX = MARGIN_LEFT
       const y = i * yLimit / yGridCount
@@ -117,9 +108,9 @@ canvas {
 
     // 積み上げ棒グラフを描画
     for (let i = 0; i < data.length; i++) {
-      const barHeight = getBarHeight(data[i]['合計'])
+      const barHeight = yToCanvasY(data[i]['合計'])
       const x = CHART_BAR_WIDTH * i
-      const canvasX = xToCancasX(CHART_BAR_WIDTH * i)
+      const canvasX = xToCancasX(x)
       const nextX = CHART_BAR_WIDTH * (i + 1)
       const barWidth = (xToCancasX(nextX) - canvasX) / 2
       let y = 0
@@ -187,6 +178,30 @@ canvas {
     ctx.fillText('一般会計歳出目的別歳出額', CANVAS_WIDTH / 2, MARGIN_TOP - 20)
   }
 
+  function drawTooltip(canvasX, canvasY, textList) {
+    const canvas = document.getElementById('barChart')
+    const ctx = canvas.getContext('2d')
+    ctx.beginPath()
+    ctx.moveTo(canvasX, canvasY + 5)
+    ctx.lineTo(canvasX + 10, canvasY)
+    ctx.lineTo(canvasX + 10, canvasY + 10)
+    ctx.closePath()
+    ctx.fillStyle = 'rgba(0, 0, 0, 1)'
+    ctx.fill()
+    const textWidth = Math.max(...textList.map(text => text.length)) * 13
+    ctx.fillRect(canvasX + 10, canvasY - 10, textWidth, 75)
+    
+    
+    let textCanvasY = canvasY + 10
+    for (const text of textList) {
+      ctx.fillStyle = '#fff'
+      ctx.font = '12px Arial'
+      ctx.textAlign = 'left'
+      ctx.fillText(text, canvasX + 15, textCanvasY)
+      textCanvasY += 20
+    }
+  }
+
   async function init() {
     const json = await fetch('data.json').then((res) => res.json())
     const data = json.data
@@ -212,12 +227,20 @@ canvas {
       const hoveredBarData = currentChartData.find((item) => {
         return x >= item.x.start && x <= item.x.end
       })
-      document.getElementById("x").innerHTML = `x: ${hoveredBarData ? hoveredBarData.x.year : 'なし'}`
       const y = canvasYToY(e.offsetY)
       const hoveredYData = hoveredBarData?.y?.find((item) => {
         return y >= item.start && y <= item.end
       })
-      document.getElementById("y").innerHTML = `x: ${hoveredYData?.category ?? 'なし'}`
+      if (hoveredYData) {
+        drawBarChart(data)
+        drawTooltip(mousePosX, e.offsetY, [
+          `${hoveredBarData.x.year}年`,
+          `${hoveredYData.category}`,
+          `${getYWithUnitText(hoveredYData.end - hoveredYData.start)}`,
+        ])
+      } else {
+        drawBarChart(data)
+      }
     })
 
     canvas.addEventListener("wheel", function(e) {
@@ -240,10 +263,6 @@ canvas {
 
 <body onload="init()">
   <canvas id="barChart"></canvas>
-  <div>
-    <div id="x">x: </div>
-    <div id="y">y: </div>
-  </div>
   
 </body> 
 
