@@ -41,7 +41,6 @@ canvas {
     value: 1000000
   }]
 
-  const Y_LIMIT = 180000000000
 
   let offsetX = 0
   let scaleX = 1
@@ -49,6 +48,16 @@ canvas {
   let mouseDown = false
   let mousePosX = 0
   let currentChartData = []
+  let chartCategory = 'all'
+
+  let yMax = 0
+  
+  let data
+
+  const getYLimit = () => {
+    const num = Math.ceil(yMax / 1000000000)
+    return (num + 5 - num % 5) * 1000000000
+  }
   
   const getYGridCount = () => {
     return 6
@@ -63,11 +72,11 @@ canvas {
   }
 
   const canvasYToY = (canvasY) => {
-    return (FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT * Y_LIMIT
+    return (FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT * getYLimit()
   }
 
   const yToCanvasY = (y) => {
-    return FRAME_HEIGHT - y / Y_LIMIT * FRAME_HEIGHT + MARGIN_TOP
+    return FRAME_HEIGHT - y / getYLimit() * FRAME_HEIGHT + MARGIN_TOP
   }
 
   const getYWithUnitText = (y) => {
@@ -86,6 +95,7 @@ canvas {
   const drawBarChart = (data) => {
     const canvas = document.getElementById('barChart')
     const ctx = canvas.getContext('2d')
+    currentChartData = []
 
     // グラフのフレームを描画
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
@@ -95,7 +105,7 @@ canvas {
 
     // y軸のグリッドを描画
     const yGridCount = getYGridCount()
-    const yLimit = Y_LIMIT
+    const yLimit = getYLimit()
     for (let i = 1; i <= yGridCount; i++) {
       const canvasX = MARGIN_LEFT
       const y = i * yLimit / yGridCount
@@ -115,6 +125,18 @@ canvas {
       const barWidth = (xToCancasX(nextX) - canvasX) / 2
       let y = 0
       const yList = []
+      const colorList = [
+        '#c20',
+        '#385',
+        '#527dbfff',
+        '#52bf8dff',
+        '#bf526fff',
+        '#52bf96ff',
+        '#46a',
+        '#f8ff00cc',
+        '#bf5252ff',
+        '#97bf52ff'
+      ]
       for (const category in data[i]) {
         if (category !== 'year' && category !== '合計') {
           ctx.beginPath()
@@ -122,7 +144,11 @@ canvas {
           const categoryY = data[i][category]
           const categoryHeight = yToCanvasY(y + categoryY) - canvasY
           ctx.rect(canvasX, canvasY, barWidth, categoryHeight)
-          ctx.fillStyle = CATEGORY_COLOR[category]
+          if (chartCategory !== 'all') {
+            ctx.fillStyle = '#0aa'
+          } else {
+            ctx.fillStyle = CATEGORY_COLOR[category]
+          }
           ctx.fill()
           yList.push({
             category,
@@ -175,10 +201,14 @@ canvas {
     ctx.font = '16px Arial'
     ctx.fillStyle = '#000'
     ctx.textAlign = 'center'
-    ctx.fillText('一般会計歳出目的別歳出額', CANVAS_WIDTH / 2, MARGIN_TOP - 20)
+    let title = '一般会計歳出目的別歳出額'
+    if (chartCategory !== 'all') {
+      title = `一般会計歳出目的別歳出額(${chartCategory})`
+    } 
+    ctx.fillText(title, CANVAS_WIDTH / 2, MARGIN_TOP - 20)
   }
 
-  function drawTooltip(canvasX, canvasY, textList) {
+  const drawTooltip = (canvasX, canvasY, textList) => {
     const canvas = document.getElementById('barChart')
     const ctx = canvas.getContext('2d')
     ctx.beginPath()
@@ -190,8 +220,7 @@ canvas {
     ctx.fill()
     const textWidth = Math.max(...textList.map(text => text.length)) * 13
     ctx.fillRect(canvasX + 10, canvasY - 10, textWidth, 75)
-    
-    
+
     let textCanvasY = canvasY + 10
     for (const text of textList) {
       ctx.fillStyle = '#fff'
@@ -202,9 +231,22 @@ canvas {
     }
   }
 
+  const filterDataByCategory = (data) => {
+    if (chartCategory === 'all') {
+      return data
+    }
+    return data.map((item) => {
+      const filteredItem = { year: item.year }
+      filteredItem[chartCategory] = item[chartCategory]
+      return filteredItem
+    })
+  }
+
   async function init() {
     const json = await fetch('data.json').then((res) => res.json())
-    const data = json.data
+    data = json.data
+    yMax = Math.max(...data.map(item => item['合計']))
+
     const canvas = document.getElementById('barChart')
     canvas.width = CANVAS_WIDTH
     canvas.height = CANVAS_HEIGHT
@@ -217,10 +259,11 @@ canvas {
       mouseDown = false
     })
     canvas.addEventListener("mousemove", function(e) {
+      const filteredData = filterDataByCategory(data)
       if (mouseDown) {
         newOffsetX = e.offsetX - mousePosX + offsetX
         offsetX = newOffsetX
-        drawBarChart(data)
+        drawBarChart(filteredData)
       }
       mousePosX = e.offsetX
       const x = canvasXToX(mousePosX)
@@ -232,18 +275,19 @@ canvas {
         return y >= item.start && y <= item.end
       })
       if (hoveredYData) {
-        drawBarChart(data)
+        drawBarChart(filteredData)
         drawTooltip(mousePosX, e.offsetY, [
           `${hoveredBarData.x.year}年`,
           `${hoveredYData.category}`,
           `${getYWithUnitText(hoveredYData.end - hoveredYData.start)}`,
         ])
       } else {
-        drawBarChart(data)
+        drawBarChart(filteredData)
       }
     })
 
     canvas.addEventListener("wheel", function(e) {
+      const filteredData = filterDataByCategory(data)
       let newScaleX = scaleX
       if (e.deltaY > 0) {
         newScaleX -= 0.1
@@ -253,16 +297,43 @@ canvas {
       const newOffsetX = (1/newScaleX - 1/scaleX) * mousePosX + offsetX
       offsetX = newOffsetX
       scaleX = newScaleX
-      drawBarChart(data)
+      drawBarChart(filteredData)
     })
     
-    drawBarChart(data)
-    
+    drawBarChart(filterDataByCategory(data))
+  }
+
+  function onChangeCategory() {
+    const category = document.getElementById('category').value
+    chartCategory = category
+
+    if (category === 'all') {
+      yMax = Math.max(...data.map(item => item['合計']))
+    } else {
+      yMax = Math.max(...data.map(item => item[category]))
+    }
+    const filteredData = filterDataByCategory(data)
+    drawBarChart(filteredData)
   }
 </script>
 
 <body onload="init()">
   <canvas id="barChart"></canvas>
+  <div style="margin-top: 10px;">
+    <select id="category" onchange="onChangeCategory()">
+      <option value="all">全て</option>
+      <option value="国家機関費">国家機関費</option>
+      <option value="地方財政費">地方財政費</option>
+      <option value="防衛関係費">防衛関係費</option>
+      <option value="国土保全及び開発費">国土保全及び開発費</option>
+      <option value="産業経済費">産業経済費</option>
+      <option value="教育文化費">教育文化費</option>
+      <option value="社会保障関係費">社会保障関係費</option>
+      <option value="恩給費">恩給費</option>
+      <option value="国債費">国債費</option>
+      <option value="その他">その他</option>
+    </select>
+  </div>
   
 </body> 
 
