@@ -212,22 +212,43 @@ canvas {
     const canvas = document.getElementById('barChart')
     const ctx = canvas.getContext('2d')
     ctx.beginPath()
-    ctx.moveTo(canvasX, canvasY + 5)
-    ctx.lineTo(canvasX + 10, canvasY)
-    ctx.lineTo(canvasX + 10, canvasY + 10)
+    ctx.moveTo(canvasX, canvasY)
+    ctx.lineTo(canvasX + 10, canvasY - 5)
+    ctx.lineTo(canvasX + 10, canvasY + 5)
     ctx.closePath()
     ctx.fillStyle = 'rgba(0, 0, 0, 1)'
     ctx.fill()
-    const textWidth = Math.max(...textList.map(text => text.length)) * 13
-    ctx.fillRect(canvasX + 10, canvasY - 10, textWidth, 75)
-
-    let textCanvasY = canvasY + 10
+    ctx.beginPath()
+    
+    const textWidth = Math.max(...textList.map(text => text.length)) * 14
+    const size = {
+      width: textWidth,
+      height: 75
+    }
+    const topLeft = {
+      x: canvasX + 10,
+      y: canvasY - size.height / 2
+    }
+    const radius = 7
+    ctx.moveTo(topLeft.x + radius, topLeft.y)
+    ctx.lineTo(topLeft.x + size.width - radius, topLeft.y)
+    ctx.quadraticCurveTo(topLeft.x + size.width, topLeft.y, topLeft.x + size.width, topLeft.y + radius)
+    ctx.lineTo(topLeft.x + size.width, topLeft.y + size.height - radius)
+    ctx.quadraticCurveTo(topLeft.x + size.width, topLeft.y + size.height, topLeft.x + size.width - radius, topLeft.y + size.height)
+    ctx.lineTo(topLeft.x + radius, topLeft.y + size.height)
+    ctx.quadraticCurveTo(topLeft.x, topLeft.y + size.height, topLeft.x, topLeft.y + size.height - radius)
+    ctx.lineTo(topLeft.x, topLeft.y + radius)
+    ctx.quadraticCurveTo(topLeft.x, topLeft.y, topLeft.x + radius, topLeft.y)
+    ctx.fillStyle = 'rgba(0, 0, 0, 1)'
+    ctx.fill()
+    
+    let textCanvasY = topLeft.y + 25
     for (const text of textList) {
       ctx.fillStyle = '#fff'
       ctx.font = '12px Arial'
       ctx.textAlign = 'left'
-      ctx.fillText(text, canvasX + 15, textCanvasY)
-      textCanvasY += 20
+      ctx.fillText(text, canvasX + 17, textCanvasY)
+      textCanvasY += 17
     }
   }
 
@@ -276,7 +297,7 @@ canvas {
       })
       if (hoveredYData) {
         drawBarChart(filteredData)
-        drawTooltip(mousePosX, e.offsetY, [
+        drawTooltip(xToCancasX(hoveredBarData.x.end), yToCanvasY((hoveredYData.end + hoveredYData.start) / 2), [
           `${hoveredBarData.x.year}年`,
           `${hoveredYData.category}`,
           `${getYWithUnitText(hoveredYData.end - hoveredYData.start)}`,
