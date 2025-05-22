@@ -31,6 +31,13 @@ const handleFileLoad = async () => {
       data,
     })
     const select = document.getElementById("categorySelector")
+    if (select) {
+      select.innerHTML = ""
+      const option = document.createElement("option")
+      option.setAttribute("value", "all")
+      option.innerHTML = "全て"
+      select?.appendChild(option)
+    }
     chart.categoryList.reverse().forEach((category) => {
       const option = document.createElement("option")
       option.setAttribute("value", category)

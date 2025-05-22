@@ -3068,6 +3068,7 @@
     setData(data) {
       this._data = data;
       const colors = getColorList(this.categoryList.length);
+      this._filteredCategory = void 0;
       this.categoryList.forEach((category, index) => {
         this._categoryColor[category] = colors[index];
       });
@@ -3421,6 +3422,13 @@
         data
       });
       const select2 = document.getElementById("categorySelector");
+      if (select2) {
+        select2.innerHTML = "";
+        const option = document.createElement("option");
+        option.setAttribute("value", "all");
+        option.innerHTML = "\u5168\u3066";
+        select2?.appendChild(option);
+      }
       chart.categoryList.reverse().forEach((category) => {
         const option = document.createElement("option");
         option.setAttribute("value", category);

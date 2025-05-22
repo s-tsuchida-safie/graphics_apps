@@ -133,6 +133,7 @@ class StackedBarChart {
   setData(data: StackedBarChartData) {
     this._data = data
     const colors = getColorList(this.categoryList.length)
+    this._filteredCategory = undefined
     this.categoryList.forEach((category, index) => {
       this._categoryColor[category] = colors[index]
     })
