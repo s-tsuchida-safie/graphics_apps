@@ -19,11 +19,11 @@ type ChartPosition = {
   }[]
 }
 
-const CANVAS_WIDTH = 1000
-const CANVAS_HEIGHT = 600
+const CANVAS_WIDTH = 900
+const CANVAS_HEIGHT = 500
 
 const MARGIN_TOP = 60
-const MARGIN_RIGHT = 30
+const MARGIN_RIGHT = 60
 const MARGIN_LEFT = 80
 const MARGIN_BOTTOM = 60
 const Y_GRID_COUNT = 6
@@ -45,6 +45,10 @@ const UNIT_LIST = [
   {
     unit: "万",
     value: 10000,
+  },
+  {
+    unit: "",
+    value: 1,
   },
 ]
 
@@ -102,7 +106,7 @@ class StackedBarChart {
   constructor() {
     this._offsetX = 0
     this._scaleX = 1
-    this._title = "ファイルを選択してください"
+    this._title = "CSVファイルを選択してください"
     this._canvas = document.createElement("canvas")
     this._canvas.width = CANVAS_WIDTH
     this._canvas.height = CANVAS_HEIGHT
@@ -172,27 +176,50 @@ class StackedBarChart {
     })
   }
 
-  private _getYChartLimit = () => {
-    const num = Math.ceil(this._yMax / 1000000000)
-    return (num + 5 - (num % 5)) * 1000000000
+  get lastDataPosX() {
+    return this.chartData.length * CHART_BAR_WIDTH
   }
 
-  private _getYWithUnitText = (y) => {
+  private _getChartLimitY = () => {
+    const baseNum = Math.pow(10, Math.floor(Math.log10(this._yMax)))
+    const num = Math.ceil(this._yMax / baseNum)
+    return num * baseNum
+  }
+
+  private _getYWithUnit = (y) => {
     let tempY = y
-    let text = ""
+    let texts: string[] = []
     for (const yUnit of UNIT_LIST) {
       const y = Math.floor(tempY / yUnit.value)
       if (y > 0) {
-        text += y + yUnit.unit
+        texts.push(y + yUnit.unit)
         tempY -= y * yUnit.value
       }
     }
-    return text
+    return texts
   }
 
   private get _yMax() {
+    if (this._filteredCategory === undefined) {
+      return Math.max(
+        ...this.chartData.map((rowData) => {
+          const max = rowData.categoryDataList.reduce((prev, curr) => {
+            return prev + curr.value
+          }, 0)
+          return max
+        })
+      )
+    }
+    const filteredData = this.chartData.map(({ key, categoryDataList }) => {
+      return {
+        key,
+        categoryDataList: categoryDataList.filter(
+          ({ category }) => category === this._filteredCategory
+        ),
+      }
+    })
     return Math.max(
-      ...this.chartData.map((rowData, index) => {
+      ...filteredData.map((rowData) => {
         const max = rowData.categoryDataList.reduce((prev, curr) => {
           return prev + curr.value
         }, 0)
@@ -207,7 +234,7 @@ class StackedBarChart {
 
   private _yToCanvasY(y: number) {
     return (
-      FRAME_HEIGHT - (y / this._getYChartLimit()) * FRAME_HEIGHT + MARGIN_TOP
+      FRAME_HEIGHT - (y / this._getChartLimitY()) * FRAME_HEIGHT + MARGIN_TOP
     )
   }
 
@@ -218,7 +245,7 @@ class StackedBarChart {
   private _canvasYToY(canvasY: number) {
     return (
       ((FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT) *
-      this._getYChartLimit()
+      this._getChartLimitY()
     )
   }
 
@@ -238,13 +265,16 @@ class StackedBarChart {
   }
 
   private _handleMouseMove(e: MouseEvent) {
-    console.log(`handleMouseMOve: ${e.offsetX}`)
-    console.log(this._canvasXToX)
-    console.log(this._getYWithUnitText)
-    console.log(this)
     if (this._isMouseDown) {
-      const newOffsetX = e.offsetX - this._mousePosX + this._offsetX
-      this._offsetX = newOffsetX
+      const prevOffsetX = this._offsetX
+      const diffX = e.offsetX - this._mousePosX
+      this._offsetX = diffX + prevOffsetX
+      if (diffX < 0 && this._xToCanvasX(this.lastDataPosX) < MARGIN_LEFT + FRAME_WIDTH - 20) {
+        this._offsetX = prevOffsetX
+      }
+      if (diffX > 0 && this._xToCanvasX(0) > MARGIN_LEFT + 20) {
+        this._offsetX = prevOffsetX
+      }
       this._drowStackedBarChart()
     }
     this._mousePosX = e.offsetX
@@ -256,16 +286,17 @@ class StackedBarChart {
     const hoveredYData = hoveredBarData?.y?.find((item) => {
       return y >= item.start && y <= item.end
     })
-    if (hoveredYData && hoveredBarData) {
+    if (hoveredYData && hoveredBarData && this._filteredCategory === undefined) {
       this._drowStackedBarChart()
+      const tooltipText = [
+          `${hoveredBarData.x.key}`,
+          `${hoveredYData.key}`,
+          `${this._getYWithUnit(hoveredYData.end - hoveredYData.start).join("")}`,
+        ]
       this._drawTooltip(
         this._xToCanvasX(hoveredBarData.x.end),
         this._yToCanvasY((hoveredYData.end + hoveredYData.start) / 2),
-        [
-          `${hoveredBarData.x.key}年`,
-          `${hoveredYData.key}`,
-          `${this._getYWithUnitText(hoveredYData.end - hoveredYData.start)}`,
-        ]
+        tooltipText
       )
     } else {
       this._drowStackedBarChart()
@@ -273,6 +304,8 @@ class StackedBarChart {
   }
 
   private _handleWheel(e: WheelEvent) {
+    const prevScale = this._scaleX
+    const prevOffsetX = this._offsetX
     let newScaleX = this._scaleX
     if (e.deltaY > 0) {
       newScaleX -= 0.1
@@ -283,6 +316,10 @@ class StackedBarChart {
       (1 / newScaleX - 1 / this._scaleX) * this._mousePosX + this._offsetX
     this._offsetX = newOffsetX
     this._scaleX = newScaleX
+    if (e.deltaY > 0 && (this._xToCanvasX(this.lastDataPosX) < MARGIN_LEFT + FRAME_WIDTH - 20 && this._xToCanvasX(0) > MARGIN_LEFT + 20)) {
+      this._scaleX = prevScale
+      this._offsetX = prevOffsetX
+    }
     this._drowStackedBarChart()
   }
 
@@ -306,7 +343,7 @@ class StackedBarChart {
     ctx.stroke()
 
     // y軸のグリッドを描画
-    const yLimit = this._getYChartLimit()
+    const yLimit = this._getChartLimitY()
     for (let i = 1; i <= Y_GRID_COUNT; i++) {
       const canvasX = MARGIN_LEFT
       const y = (i * yLimit) / Y_GRID_COUNT
@@ -379,7 +416,7 @@ class StackedBarChart {
       ctx.fillStyle = "#000"
       ctx.textAlign = "right"
       const y = (i * yLimit) / Y_GRID_COUNT
-      const yGraphScaleText = this._getYWithUnitText(y)
+      const yGraphScaleText = this._getYWithUnit(y)[0]
       const canvasX = MARGIN_LEFT
       const canvasY = this._yToCanvasY(y)
       ctx.fillText(yGraphScaleText, canvasX - 15, canvasY)
@@ -390,6 +427,18 @@ class StackedBarChart {
     ctx.fillStyle = "#000"
     ctx.textAlign = "center"
     ctx.fillText(this._title, CANVAS_WIDTH / 2, MARGIN_TOP - 20)
+
+    // X軸のタイトルを描画
+    ctx.font = "12px Arial"
+    ctx.fillStyle = "#000"
+    ctx.textAlign = "center"
+    const text = this._data.headers
+        .find((header) => header.xAxis)?.value
+    ctx.fillText(
+      text ?? "",
+      MARGIN_LEFT + FRAME_WIDTH + 10,
+      MARGIN_TOP + FRAME_HEIGHT + 15
+    )
   }
   private _drawTooltip = (canvasX, canvasY, textList) => {
     const ctx = this._canvas.getContext("2d") as CanvasRenderingContext2D
@@ -402,7 +451,18 @@ class StackedBarChart {
     ctx.fill()
     ctx.beginPath()
 
-    const textWidth = Math.max(...textList.map((text) => text.length)) * 14
+     
+    const textWidth = Math.max(...textList.map((text) => {
+      const span = document.createElement("div")
+      span.style.fontSize = "12px"
+      span.style.width = 'fit-content'
+      span.style.padding = "0.5rem"
+      span.textContent = text
+      document.body.appendChild(span)
+      const width = span.offsetWidth
+      document.body.removeChild(span)
+      return width
+    }))
     const size = {
       width: textWidth,
       height: 75,

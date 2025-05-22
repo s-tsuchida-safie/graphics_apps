@@ -2973,10 +2973,10 @@
   };
 
   // src/stackedBarChart.ts
-  var CANVAS_WIDTH = 1e3;
-  var CANVAS_HEIGHT = 600;
+  var CANVAS_WIDTH = 900;
+  var CANVAS_HEIGHT = 500;
   var MARGIN_TOP = 60;
-  var MARGIN_RIGHT = 30;
+  var MARGIN_RIGHT = 60;
   var MARGIN_LEFT = 80;
   var MARGIN_BOTTOM = 60;
   var Y_GRID_COUNT = 6;
@@ -2995,6 +2995,10 @@
     {
       unit: "\u4E07",
       value: 1e4
+    },
+    {
+      unit: "",
+      value: 1
     }
   ];
   var getColorList = (num) => {
@@ -3039,7 +3043,7 @@
     constructor() {
       this._offsetX = 0;
       this._scaleX = 1;
-      this._title = "\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E\u3057\u3066\u304F\u3060\u3055\u3044";
+      this._title = "CSV\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u629E\u3057\u3066\u304F\u3060\u3055\u3044";
       this._canvas = document.createElement("canvas");
       this._canvas.width = CANVAS_WIDTH;
       this._canvas.height = CANVAS_HEIGHT;
@@ -3094,25 +3098,47 @@
         };
       });
     }
-    _getYChartLimit = () => {
-      const num = Math.ceil(this._yMax / 1e9);
-      return (num + 5 - num % 5) * 1e9;
+    get lastDataPosX() {
+      return this.chartData.length * CHART_BAR_WIDTH;
+    }
+    _getChartLimitY = () => {
+      const baseNum = Math.pow(10, Math.floor(Math.log10(this._yMax)));
+      const num = Math.ceil(this._yMax / baseNum);
+      return num * baseNum;
     };
-    _getYWithUnitText = (y) => {
+    _getYWithUnit = (y) => {
       let tempY = y;
-      let text = "";
+      let texts = [];
       for (const yUnit of UNIT_LIST) {
         const y2 = Math.floor(tempY / yUnit.value);
         if (y2 > 0) {
-          text += y2 + yUnit.unit;
+          texts.push(y2 + yUnit.unit);
           tempY -= y2 * yUnit.value;
         }
       }
-      return text;
+      return texts;
     };
     get _yMax() {
+      if (this._filteredCategory === void 0) {
+        return Math.max(
+          ...this.chartData.map((rowData) => {
+            const max = rowData.categoryDataList.reduce((prev, curr) => {
+              return prev + curr.value;
+            }, 0);
+            return max;
+          })
+        );
+      }
+      const filteredData = this.chartData.map(({ key, categoryDataList }) => {
+        return {
+          key,
+          categoryDataList: categoryDataList.filter(
+            ({ category }) => category === this._filteredCategory
+          )
+        };
+      });
       return Math.max(
-        ...this.chartData.map((rowData, index) => {
+        ...filteredData.map((rowData) => {
           const max = rowData.categoryDataList.reduce((prev, curr) => {
             return prev + curr.value;
           }, 0);
@@ -3124,13 +3150,13 @@
       return this._scaleX * (x + this._offsetX);
     }
     _yToCanvasY(y) {
-      return FRAME_HEIGHT - y / this._getYChartLimit() * FRAME_HEIGHT + MARGIN_TOP;
+      return FRAME_HEIGHT - y / this._getChartLimitY() * FRAME_HEIGHT + MARGIN_TOP;
     }
     _canvasXToX(canvasX) {
       return canvasX / this._scaleX - this._offsetX;
     }
     _canvasYToY(canvasY) {
-      return (FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT * this._getYChartLimit();
+      return (FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT * this._getChartLimitY();
     }
     _filterChartDataByCategory() {
       if (this._filteredCategory === void 0) {
@@ -3146,13 +3172,16 @@
       });
     }
     _handleMouseMove(e) {
-      console.log(`handleMouseMOve: ${e.offsetX}`);
-      console.log(this._canvasXToX);
-      console.log(this._getYWithUnitText);
-      console.log(this);
       if (this._isMouseDown) {
-        const newOffsetX = e.offsetX - this._mousePosX + this._offsetX;
-        this._offsetX = newOffsetX;
+        const prevOffsetX = this._offsetX;
+        const diffX = e.offsetX - this._mousePosX;
+        this._offsetX = diffX + prevOffsetX;
+        if (diffX < 0 && this._xToCanvasX(this.lastDataPosX) < MARGIN_LEFT + FRAME_WIDTH - 20) {
+          this._offsetX = prevOffsetX;
+        }
+        if (diffX > 0 && this._xToCanvasX(0) > MARGIN_LEFT + 20) {
+          this._offsetX = prevOffsetX;
+        }
         this._drowStackedBarChart();
       }
       this._mousePosX = e.offsetX;
@@ -3164,22 +3193,25 @@
       const hoveredYData = hoveredBarData?.y?.find((item) => {
         return y >= item.start && y <= item.end;
       });
-      if (hoveredYData && hoveredBarData) {
+      if (hoveredYData && hoveredBarData && this._filteredCategory === void 0) {
         this._drowStackedBarChart();
+        const tooltipText = [
+          `${hoveredBarData.x.key}`,
+          `${hoveredYData.key}`,
+          `${this._getYWithUnit(hoveredYData.end - hoveredYData.start).join("")}`
+        ];
         this._drawTooltip(
           this._xToCanvasX(hoveredBarData.x.end),
           this._yToCanvasY((hoveredYData.end + hoveredYData.start) / 2),
-          [
-            `${hoveredBarData.x.key}\u5E74`,
-            `${hoveredYData.key}`,
-            `${this._getYWithUnitText(hoveredYData.end - hoveredYData.start)}`
-          ]
+          tooltipText
         );
       } else {
         this._drowStackedBarChart();
       }
     }
     _handleWheel(e) {
+      const prevScale = this._scaleX;
+      const prevOffsetX = this._offsetX;
       let newScaleX = this._scaleX;
       if (e.deltaY > 0) {
         newScaleX -= 0.1;
@@ -3189,6 +3221,10 @@
       const newOffsetX = (1 / newScaleX - 1 / this._scaleX) * this._mousePosX + this._offsetX;
       this._offsetX = newOffsetX;
       this._scaleX = newScaleX;
+      if (e.deltaY > 0 && (this._xToCanvasX(this.lastDataPosX) < MARGIN_LEFT + FRAME_WIDTH - 20 && this._xToCanvasX(0) > MARGIN_LEFT + 20)) {
+        this._scaleX = prevScale;
+        this._offsetX = prevOffsetX;
+      }
       this._drowStackedBarChart();
     }
     _handleMouseDown(e) {
@@ -3205,7 +3241,7 @@
       ctx.beginPath();
       ctx.rect(MARGIN_LEFT, MARGIN_TOP, FRAME_WIDTH, FRAME_HEIGHT);
       ctx.stroke();
-      const yLimit = this._getYChartLimit();
+      const yLimit = this._getChartLimitY();
       for (let i = 1; i <= Y_GRID_COUNT; i++) {
         const canvasX = MARGIN_LEFT;
         const y = i * yLimit / Y_GRID_COUNT;
@@ -3269,7 +3305,7 @@
         ctx.fillStyle = "#000";
         ctx.textAlign = "right";
         const y = i * yLimit / Y_GRID_COUNT;
-        const yGraphScaleText = this._getYWithUnitText(y);
+        const yGraphScaleText = this._getYWithUnit(y)[0];
         const canvasX = MARGIN_LEFT;
         const canvasY = this._yToCanvasY(y);
         ctx.fillText(yGraphScaleText, canvasX - 15, canvasY);
@@ -3278,6 +3314,15 @@
       ctx.fillStyle = "#000";
       ctx.textAlign = "center";
       ctx.fillText(this._title, CANVAS_WIDTH / 2, MARGIN_TOP - 20);
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "#000";
+      ctx.textAlign = "center";
+      const text = this._data.headers.find((header) => header.xAxis)?.value;
+      ctx.fillText(
+        text ?? "",
+        MARGIN_LEFT + FRAME_WIDTH + 10,
+        MARGIN_TOP + FRAME_HEIGHT + 15
+      );
     }
     _drawTooltip = (canvasX, canvasY, textList) => {
       const ctx = this._canvas.getContext("2d");
@@ -3289,7 +3334,17 @@
       ctx.fillStyle = "rgba(0, 0, 0, 1)";
       ctx.fill();
       ctx.beginPath();
-      const textWidth = Math.max(...textList.map((text) => text.length)) * 14;
+      const textWidth = Math.max(...textList.map((text) => {
+        const span = document.createElement("div");
+        span.style.fontSize = "12px";
+        span.style.width = "fit-content";
+        span.style.padding = "0.5rem";
+        span.textContent = text;
+        document.body.appendChild(span);
+        const width = span.offsetWidth;
+        document.body.removeChild(span);
+        return width;
+      }));
       const size = {
         width: textWidth,
         height: 75
@@ -3366,7 +3421,7 @@
         data
       });
       const select2 = document.getElementById("categorySelector");
-      chart.categoryList.forEach((category) => {
+      chart.categoryList.reverse().forEach((category) => {
         const option = document.createElement("option");
         option.setAttribute("value", category);
         option.innerHTML = category;
@@ -3381,7 +3436,7 @@
     const files = element?.files;
     if (files && files?.length > 0) {
       const file = files[0];
-      chart.setTitle(file.name.split(" ")[0]);
+      chart.setTitle(file.name.split(".")[0]);
       reader.readAsText(file);
     }
   };

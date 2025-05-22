@@ -31,7 +31,7 @@ const handleFileLoad = async () => {
       data,
     })
     const select = document.getElementById("categorySelector")
-    chart.categoryList.forEach((category) => {
+    chart.categoryList.reverse().forEach((category) => {
       const option = document.createElement("option")
       option.setAttribute("value", category)
       option.innerHTML = category
@@ -48,7 +48,7 @@ const handleFileInputChange = () => {
   const files = element?.files
   if (files && files?.length > 0) {
     const file = files[0]
-    chart.setTitle(file.name.split(" ")[0])
+    chart.setTitle(file.name.split(".")[0])
     reader.readAsText(file)
   }
 }
