@@ -117,7 +117,7 @@ class StackedBarChart {
   constructor() {
     this._offsetX = 0
     this._scaleX = 1
-    this._title = "CSVファイルを選択してください"
+    this._title = ""
     this._canvas = document.createElement("canvas")
     this._canvas.width = CANVAS_WIDTH
     this._canvas.height = CANVAS_HEIGHT
@@ -316,6 +316,7 @@ class StackedBarChart {
   }
 
   private _handleWheel(e: WheelEvent) {
+    e.preventDefault()
     const prevScale = this._scaleX
     const prevOffsetX = this._offsetX
     let newScaleX = this._scaleX
