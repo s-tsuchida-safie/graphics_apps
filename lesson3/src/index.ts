@@ -1,15 +1,18 @@
 import { parse } from "csv-parse/browser/esm/sync"
 import { StackedBarChart } from "./stackedBarChart"
 
+
 const chart = new StackedBarChart()
 const target = document.getElementById("barChart")
 if (target) {
   chart.setTarget(target)
 }
 
-const handleFileLoad = async () => {
-  if (typeof reader.result === "string") {
-    const records = await parse(reader.result)
+
+
+const reader = new FileReader()
+const handleDataLoad = async (result: string) => {
+  const records = await parse(result)
     const rawData: string[][] = []
     for (const record of records) {
       rawData.push(record)
@@ -44,11 +47,12 @@ const handleFileLoad = async () => {
       option.innerHTML = category
       select?.appendChild(option)
     })
-  }
 }
-
-const reader = new FileReader()
-reader.addEventListener("load", handleFileLoad)
+reader.addEventListener("load", () => {
+  if (typeof reader.result === "string") {
+    handleDataLoad(reader.result)
+  }
+})
 
 const handleFileInputChange = () => {
   const element = document.getElementById("fileInput") as HTMLInputElement
@@ -74,3 +78,12 @@ const handleChangeSelect = (e: Event) => {
 
 const select = document.getElementById("categorySelector") as HTMLSelectElement
 select?.addEventListener("change", handleChangeSelect)
+
+async function init() {
+  const defaultData = await fetch('./dist/default_data.csv').then((res) => res.text())
+  handleDataLoad(defaultData)
+  chart.setTitle("一般会計歳出目的別支出済歳出額")
+}
+init()
+
+

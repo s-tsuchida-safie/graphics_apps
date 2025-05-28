@@ -3039,7 +3039,10 @@
     _offsetX;
     _scaleX;
     _title;
+    _xAxisTitle;
     _categoryColor;
+    _yMax;
+    chartData;
     constructor() {
       this._offsetX = 0;
       this._scaleX = 1;
@@ -3051,6 +3054,7 @@
         headers: [],
         data: []
       };
+      this.chartData = [];
       this._handleMouseDown = this._handleMouseDown.bind(this);
       this._handleMouseUp = this._handleMouseUp.bind(this);
       this._handleWheel = this._handleWheel.bind(this);
@@ -3061,6 +3065,8 @@
       this._canvas.addEventListener("mousemove", this._handleMouseMove);
       this._currentChartPosition = [];
       this._categoryColor = {};
+      this._xAxisTitle = void 0;
+      this._yMax = 0;
     }
     setTarget(element) {
       element.appendChild(this._canvas);
@@ -3072,10 +3078,15 @@
       this.categoryList.forEach((category, index) => {
         this._categoryColor[category] = colors[index];
       });
+      this._xAxisTitle = data.headers.find((header) => header.xAxis)?.value;
+      this.chartData = this.calcChartData();
+      this._yMax = this.calcYMax();
       this._drowStackedBarChart();
     }
     setFilter(category) {
       this._filteredCategory = category;
+      this.chartData = this.calcChartData();
+      this._yMax = this.calcYMax();
       this._drowStackedBarChart();
     }
     setTitle(title) {
@@ -3084,7 +3095,7 @@
     get categoryList() {
       return this._data.headers.filter((headerKey) => !headerKey.xAxis).map((headerKey) => headerKey.value);
     }
-    get chartData() {
+    calcChartData() {
       const xAxisIndex = this._data.headers.findIndex((header) => header.xAxis);
       return this._data.data.map((rowData) => {
         const newRowData = [...rowData];
@@ -3095,17 +3106,24 @@
           categoryDataList: this.categoryList.map((category, index) => ({
             category,
             value: Number(newRowData[index].split(",").join(""))
-          }))
+          })).filter(
+            ({ category }) => {
+              if (this._filteredCategory === void 0) {
+                return true;
+              }
+              return category === this._filteredCategory;
+            }
+          )
         };
       });
     }
     get lastDataPosX() {
       return this.chartData.length * CHART_BAR_WIDTH;
     }
-    _getChartLimitY = () => {
-      const baseNum = Math.pow(10, Math.floor(Math.log10(this._yMax)));
-      const num = Math.ceil(this._yMax / baseNum);
-      return num * baseNum;
+    _calcLimitY = () => {
+      const maxDigitPower = Math.pow(10, Math.floor(Math.log10(this._yMax)));
+      const maxLeadingDigit = Math.floor(this._yMax / maxDigitPower);
+      return maxDigitPower * (maxLeadingDigit + 1);
     };
     _getYWithUnit = (y) => {
       let tempY = y;
@@ -3119,7 +3137,7 @@
       }
       return texts;
     };
-    get _yMax() {
+    calcYMax() {
       if (this._filteredCategory === void 0) {
         return Math.max(
           ...this.chartData.map((rowData) => {
@@ -3151,31 +3169,18 @@
       return this._scaleX * (x + this._offsetX);
     }
     _yToCanvasY(y) {
-      return FRAME_HEIGHT - y / this._getChartLimitY() * FRAME_HEIGHT + MARGIN_TOP;
+      return FRAME_HEIGHT - y / this._calcLimitY() * FRAME_HEIGHT + MARGIN_TOP;
     }
     _canvasXToX(canvasX) {
       return canvasX / this._scaleX - this._offsetX;
     }
     _canvasYToY(canvasY) {
-      return (FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT * this._getChartLimitY();
-    }
-    _filterChartDataByCategory() {
-      if (this._filteredCategory === void 0) {
-        return this.chartData;
-      }
-      return this.chartData.map(({ key, categoryDataList }) => {
-        return {
-          key,
-          categoryDataList: categoryDataList.filter(
-            ({ category }) => category === this._filteredCategory
-          )
-        };
-      });
+      return (FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT * this._calcLimitY();
     }
     _handleMouseMove(e) {
       if (this._isMouseDown) {
         const prevOffsetX = this._offsetX;
-        const diffX = e.offsetX - this._mousePosX;
+        const diffX = (e.offsetX - this._mousePosX) / this._scaleX;
         this._offsetX = diffX + prevOffsetX;
         if (diffX < 0 && this._xToCanvasX(this.lastDataPosX) < MARGIN_LEFT + FRAME_WIDTH - 20) {
           this._offsetX = prevOffsetX;
@@ -3183,7 +3188,6 @@
         if (diffX > 0 && this._xToCanvasX(0) > MARGIN_LEFT + 20) {
           this._offsetX = prevOffsetX;
         }
-        this._drowStackedBarChart();
       }
       this._mousePosX = e.offsetX;
       const x = this._canvasXToX(this._mousePosX);
@@ -3235,14 +3239,13 @@
       this._isMouseDown = false;
     }
     _drowStackedBarChart() {
-      const chartData = this._filterChartDataByCategory();
       const ctx = this._canvas.getContext("2d");
       this._currentChartPosition = [];
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       ctx.beginPath();
       ctx.rect(MARGIN_LEFT, MARGIN_TOP, FRAME_WIDTH, FRAME_HEIGHT);
       ctx.stroke();
-      const yLimit = this._getChartLimitY();
+      const yLimit = this._calcLimitY();
       for (let i = 1; i <= Y_GRID_COUNT; i++) {
         const canvasX = MARGIN_LEFT;
         const y = i * yLimit / Y_GRID_COUNT;
@@ -3252,14 +3255,15 @@
         ctx.lineTo(canvasX + FRAME_WIDTH, canvasY);
         ctx.stroke();
       }
-      for (let i = 0; i < chartData.length; i++) {
+      ctx.closePath();
+      for (let i = 0; i < this.chartData.length; i++) {
         const x = CHART_BAR_WIDTH * i;
         const canvasX = this._xToCanvasX(x);
         const nextX = CHART_BAR_WIDTH * (i + 1);
         const barWidth = (this._xToCanvasX(nextX) - canvasX) / 2;
         let y = 0;
         const yList = [];
-        for (const { category, value } of chartData[i].categoryDataList) {
+        for (const { category, value } of this.chartData[i].categoryDataList) {
           ctx.beginPath();
           const canvasY = this._yToCanvasY(y);
           const categoryHeight = this._yToCanvasY(y + value) - canvasY;
@@ -3276,7 +3280,7 @@
         }
         this._currentChartPosition.push({
           x: {
-            key: chartData[i].key,
+            key: this.chartData[i].key,
             start: x,
             end: this._canvasXToX(canvasX + barWidth)
           },
@@ -3289,7 +3293,7 @@
           x: canvasX + barWidth / 2,
           y: MARGIN_TOP + FRAME_HEIGHT + 15
         };
-        ctx.fillText(`${chartData[i].key}`, graphScalePos.x, graphScalePos.y);
+        ctx.fillText(`${this.chartData[i].key}`, graphScalePos.x, graphScalePos.y);
       }
       ctx.beginPath();
       ctx.rect(
@@ -3306,7 +3310,7 @@
         ctx.fillStyle = "#000";
         ctx.textAlign = "right";
         const y = i * yLimit / Y_GRID_COUNT;
-        const yGraphScaleText = this._getYWithUnit(y)[0];
+        const yGraphScaleText = this._getYWithUnit(y).slice(0, 2).join("");
         const canvasX = MARGIN_LEFT;
         const canvasY = this._yToCanvasY(y);
         ctx.fillText(yGraphScaleText, canvasX - 15, canvasY);
@@ -3318,9 +3322,8 @@
       ctx.font = "12px Arial";
       ctx.fillStyle = "#000";
       ctx.textAlign = "center";
-      const text = this._data.headers.find((header) => header.xAxis)?.value;
       ctx.fillText(
-        text ?? "",
+        this._xAxisTitle ?? "",
         MARGIN_LEFT + FRAME_WIDTH + 10,
         MARGIN_TOP + FRAME_HEIGHT + 15
       );
@@ -3355,6 +3358,7 @@
         y: canvasY - size.height / 2
       };
       const radius = 7;
+      ctx.beginPath();
       ctx.moveTo(topLeft.x + radius, topLeft.y);
       ctx.lineTo(topLeft.x + size.width - radius, topLeft.y);
       ctx.quadraticCurveTo(
@@ -3398,47 +3402,49 @@
   if (target) {
     chart.setTarget(target);
   }
-  var handleFileLoad = async () => {
-    if (typeof reader.result === "string") {
-      const records = await parse(reader.result);
-      const rawData = [];
-      for (const record of records) {
-        rawData.push(record);
-      }
-      const headers = rawData[0].map((value, index) => {
-        if (index === 0) {
-          return {
-            value,
-            xAxis: true
-          };
-        }
-        return {
-          value
-        };
-      });
-      const data = rawData.slice(1);
-      chart.setData({
-        headers,
-        data
-      });
-      const select2 = document.getElementById("categorySelector");
-      if (select2) {
-        select2.innerHTML = "";
-        const option = document.createElement("option");
-        option.setAttribute("value", "all");
-        option.innerHTML = "\u5168\u3066";
-        select2?.appendChild(option);
-      }
-      chart.categoryList.reverse().forEach((category) => {
-        const option = document.createElement("option");
-        option.setAttribute("value", category);
-        option.innerHTML = category;
-        select2?.appendChild(option);
-      });
-    }
-  };
   var reader = new FileReader();
-  reader.addEventListener("load", handleFileLoad);
+  var handleDataLoad = async (result) => {
+    const records = await parse(result);
+    const rawData = [];
+    for (const record of records) {
+      rawData.push(record);
+    }
+    const headers = rawData[0].map((value, index) => {
+      if (index === 0) {
+        return {
+          value,
+          xAxis: true
+        };
+      }
+      return {
+        value
+      };
+    });
+    const data = rawData.slice(1);
+    chart.setData({
+      headers,
+      data
+    });
+    const select2 = document.getElementById("categorySelector");
+    if (select2) {
+      select2.innerHTML = "";
+      const option = document.createElement("option");
+      option.setAttribute("value", "all");
+      option.innerHTML = "\u5168\u3066";
+      select2?.appendChild(option);
+    }
+    chart.categoryList.reverse().forEach((category) => {
+      const option = document.createElement("option");
+      option.setAttribute("value", category);
+      option.innerHTML = category;
+      select2?.appendChild(option);
+    });
+  };
+  reader.addEventListener("load", () => {
+    if (typeof reader.result === "string") {
+      handleDataLoad(reader.result);
+    }
+  });
   var handleFileInputChange = () => {
     const element = document.getElementById("fileInput");
     const files = element?.files;
@@ -3460,4 +3466,10 @@
   };
   var select = document.getElementById("categorySelector");
   select?.addEventListener("change", handleChangeSelect);
+  async function init2() {
+    const defaultData = await fetch("./dist/default_data.csv").then((res) => res.text());
+    handleDataLoad(defaultData);
+    chart.setTitle("\u4E00\u822C\u4F1A\u8A08\u6B73\u51FA\u76EE\u7684\u5225\u652F\u51FA\u6E08\u6B73\u51FA\u984D");
+  }
+  init2();
 })();

@@ -92,6 +92,7 @@ const getColorList = (num: number): Color[] => {
 class StackedBarChart {
   private _canvas: HTMLCanvasElement
   private _data: StackedBarChartData
+  
   private _filteredCategory: string | undefined
   private _currentChartPosition: ChartPosition[]
   private _mousePosX: number
@@ -99,9 +100,19 @@ class StackedBarChart {
   private _offsetX: number
   private _scaleX: number
   private _title: string
+  private _xAxisTitle: string | undefined
   private _categoryColor: {
     [category: string]: Color
   }
+  private _yMax: number
+
+  public chartData: {
+    key: string
+    categoryDataList: {
+      category: string
+      value: number
+    }[]
+  }[]
 
   constructor() {
     this._offsetX = 0
@@ -114,6 +125,7 @@ class StackedBarChart {
       headers: [],
       data: [],
     }
+    this.chartData = []
     this._handleMouseDown = this._handleMouseDown.bind(this)
     this._handleMouseUp = this._handleMouseUp.bind(this)
     this._handleWheel = this._handleWheel.bind(this)
@@ -124,6 +136,8 @@ class StackedBarChart {
     this._canvas.addEventListener("mousemove", this._handleMouseMove)
     this._currentChartPosition = []
     this._categoryColor = {}
+    this._xAxisTitle = undefined
+    this._yMax = 0
   }
 
   setTarget(element: Element) {
@@ -137,11 +151,17 @@ class StackedBarChart {
     this.categoryList.forEach((category, index) => {
       this._categoryColor[category] = colors[index]
     })
+    this._xAxisTitle = data.headers
+        .find((header) => header.xAxis)?.value
+    this.chartData = this.calcChartData()
+    this._yMax = this.calcYMax()
     this._drowStackedBarChart()
   }
 
   setFilter(category: string | undefined) {
     this._filteredCategory = category
+    this.chartData = this.calcChartData()
+    this._yMax = this.calcYMax()
     this._drowStackedBarChart()
   }
 
@@ -155,7 +175,7 @@ class StackedBarChart {
       .map((headerKey) => headerKey.value)
   }
 
-  get chartData(): {
+  calcChartData(): {
     key: string
     categoryDataList: {
       category: string
@@ -172,7 +192,14 @@ class StackedBarChart {
         categoryDataList: this.categoryList.map((category, index) => ({
           category,
           value: Number(newRowData[index].split(",").join("")),
-        })),
+        })).filter(
+          ({ category }) => {
+            if (this._filteredCategory === undefined) {
+              return true
+            }
+            return category === this._filteredCategory
+          }
+        ),
       }
     })
   }
@@ -181,10 +208,10 @@ class StackedBarChart {
     return this.chartData.length * CHART_BAR_WIDTH
   }
 
-  private _getChartLimitY = () => {
-    const baseNum = Math.pow(10, Math.floor(Math.log10(this._yMax)))
-    const num = Math.ceil(this._yMax / baseNum)
-    return num * baseNum
+  private _calcLimitY = () => {
+    const maxDigitPower = Math.pow(10, Math.floor(Math.log10(this._yMax)))
+    const maxLeadingDigit = Math.floor(this._yMax / maxDigitPower)
+    return maxDigitPower * (maxLeadingDigit + 1)
   }
 
   private _getYWithUnit = (y) => {
@@ -200,7 +227,7 @@ class StackedBarChart {
     return texts
   }
 
-  private get _yMax() {
+  private calcYMax() {
     if (this._filteredCategory === undefined) {
       return Math.max(
         ...this.chartData.map((rowData) => {
@@ -235,7 +262,7 @@ class StackedBarChart {
 
   private _yToCanvasY(y: number) {
     return (
-      FRAME_HEIGHT - (y / this._getChartLimitY()) * FRAME_HEIGHT + MARGIN_TOP
+      FRAME_HEIGHT - (y / this._calcLimitY()) * FRAME_HEIGHT + MARGIN_TOP
     )
   }
 
@@ -246,29 +273,14 @@ class StackedBarChart {
   private _canvasYToY(canvasY: number) {
     return (
       ((FRAME_HEIGHT - canvasY + MARGIN_TOP) / FRAME_HEIGHT) *
-      this._getChartLimitY()
+      this._calcLimitY()
     )
-  }
-
-  private _filterChartDataByCategory() {
-    if (this._filteredCategory === undefined) {
-      return this.chartData
-    }
-
-    return this.chartData.map(({ key, categoryDataList }) => {
-      return {
-        key,
-        categoryDataList: categoryDataList.filter(
-          ({ category }) => category === this._filteredCategory
-        ),
-      }
-    })
   }
 
   private _handleMouseMove(e: MouseEvent) {
     if (this._isMouseDown) {
       const prevOffsetX = this._offsetX
-      const diffX = e.offsetX - this._mousePosX
+      const diffX = (e.offsetX - this._mousePosX) / this._scaleX
       this._offsetX = diffX + prevOffsetX
       if (diffX < 0 && this._xToCanvasX(this.lastDataPosX) < MARGIN_LEFT + FRAME_WIDTH - 20) {
         this._offsetX = prevOffsetX
@@ -276,7 +288,6 @@ class StackedBarChart {
       if (diffX > 0 && this._xToCanvasX(0) > MARGIN_LEFT + 20) {
         this._offsetX = prevOffsetX
       }
-      this._drowStackedBarChart()
     }
     this._mousePosX = e.offsetX
     const x = this._canvasXToX(this._mousePosX)
@@ -308,9 +319,12 @@ class StackedBarChart {
     const prevScale = this._scaleX
     const prevOffsetX = this._offsetX
     let newScaleX = this._scaleX
+    // 縮小
     if (e.deltaY > 0) {
       newScaleX -= 0.1
-    } else {
+    }
+    // 拡大 
+    else {
       newScaleX += 0.1
     }
     const newOffsetX =
@@ -333,7 +347,6 @@ class StackedBarChart {
   }
 
   private _drowStackedBarChart() {
-    const chartData = this._filterChartDataByCategory()
     const ctx = this._canvas.getContext("2d") as CanvasRenderingContext2D
     this._currentChartPosition = []
 
@@ -344,7 +357,7 @@ class StackedBarChart {
     ctx.stroke()
 
     // y軸のグリッドを描画
-    const yLimit = this._getChartLimitY()
+    const yLimit = this._calcLimitY()
     for (let i = 1; i <= Y_GRID_COUNT; i++) {
       const canvasX = MARGIN_LEFT
       const y = (i * yLimit) / Y_GRID_COUNT
@@ -354,9 +367,10 @@ class StackedBarChart {
       ctx.lineTo(canvasX + FRAME_WIDTH, canvasY)
       ctx.stroke()
     }
+    ctx.closePath()
 
     // 積み上げ棒グラフを描画
-    for (let i = 0; i < chartData.length; i++) {
+    for (let i = 0; i < this.chartData.length; i++) {
       const x = CHART_BAR_WIDTH * i
       const canvasX = this._xToCanvasX(x)
       const nextX = CHART_BAR_WIDTH * (i + 1)
@@ -364,7 +378,7 @@ class StackedBarChart {
       let y = 0
       const yList: ChartPosition["y"] = []
 
-      for (const { category, value } of chartData[i].categoryDataList) {
+      for (const { category, value } of this.chartData[i].categoryDataList) {
         ctx.beginPath()
         const canvasY = this._yToCanvasY(y)
         const categoryHeight = this._yToCanvasY(y + value) - canvasY
@@ -381,7 +395,7 @@ class StackedBarChart {
       }
       this._currentChartPosition.push({
         x: {
-          key: chartData[i].key,
+          key: this.chartData[i].key,
           start: x,
           end: this._canvasXToX(canvasX + barWidth),
         },
@@ -396,7 +410,7 @@ class StackedBarChart {
         x: canvasX + barWidth / 2,
         y: MARGIN_TOP + FRAME_HEIGHT + 15,
       }
-      ctx.fillText(`${chartData[i].key}`, graphScalePos.x, graphScalePos.y)
+      ctx.fillText(`${this.chartData[i].key}`, graphScalePos.x, graphScalePos.y)
     }
 
     // はみ出た分を塗りつぶす
@@ -417,7 +431,7 @@ class StackedBarChart {
       ctx.fillStyle = "#000"
       ctx.textAlign = "right"
       const y = (i * yLimit) / Y_GRID_COUNT
-      const yGraphScaleText = this._getYWithUnit(y)[0]
+      const yGraphScaleText = this._getYWithUnit(y).slice(0, 2).join("")
       const canvasX = MARGIN_LEFT
       const canvasY = this._yToCanvasY(y)
       ctx.fillText(yGraphScaleText, canvasX - 15, canvasY)
@@ -433,10 +447,8 @@ class StackedBarChart {
     ctx.font = "12px Arial"
     ctx.fillStyle = "#000"
     ctx.textAlign = "center"
-    const text = this._data.headers
-        .find((header) => header.xAxis)?.value
     ctx.fillText(
-      text ?? "",
+      this._xAxisTitle ?? "",
       MARGIN_LEFT + FRAME_WIDTH + 10,
       MARGIN_TOP + FRAME_HEIGHT + 15
     )
@@ -473,6 +485,7 @@ class StackedBarChart {
       y: canvasY - size.height / 2,
     }
     const radius = 7
+    ctx.beginPath()
     ctx.moveTo(topLeft.x + radius, topLeft.y)
     ctx.lineTo(topLeft.x + size.width - radius, topLeft.y)
     ctx.quadraticCurveTo(
