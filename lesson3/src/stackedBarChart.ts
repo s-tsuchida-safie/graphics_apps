@@ -301,9 +301,9 @@ class StackedBarChart {
     if (hoveredYData && hoveredBarData && this._filteredCategory === undefined) {
       this._drowStackedBarChart()
       const tooltipText = [
-          `${hoveredBarData.x.key}`,
-          `${hoveredYData.key}`,
-          `${this._getYWithUnit(hoveredYData.end - hoveredYData.start).join("")}`,
+          `X軸: ${hoveredBarData.x.key}`,
+          `カテゴリー: ${hoveredYData.key}`,
+          `値: ${this._getYWithUnit(hoveredYData.end - hoveredYData.start).join("")}`,
         ]
       this._drawTooltip(
         this._xToCanvasX(hoveredBarData.x.end),

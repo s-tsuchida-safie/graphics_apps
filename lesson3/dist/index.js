@@ -3201,9 +3201,9 @@
       if (hoveredYData && hoveredBarData && this._filteredCategory === void 0) {
         this._drowStackedBarChart();
         const tooltipText = [
-          `${hoveredBarData.x.key}`,
-          `${hoveredYData.key}`,
-          `${this._getYWithUnit(hoveredYData.end - hoveredYData.start).join("")}`
+          `X\u8EF8: ${hoveredBarData.x.key}`,
+          `\u30AB\u30C6\u30B4\u30EA\u30FC: ${hoveredYData.key}`,
+          `\u5024: ${this._getYWithUnit(hoveredYData.end - hoveredYData.start).join("")}`
         ];
         this._drawTooltip(
           this._xToCanvasX(hoveredBarData.x.end),
