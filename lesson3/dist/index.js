@@ -2990,7 +2990,7 @@
     },
     {
       unit: "\u5104",
-      value: 1e6
+      value: 1e8
     },
     {
       unit: "\u4E07",
@@ -3097,6 +3097,25 @@
     }
     calcChartData() {
       const xAxisIndex = this._data.headers.findIndex((header) => header.xAxis);
+      console.log(`JSON: ${JSON.stringify(this._data.data.map((rowData) => {
+        const newRowData = [...rowData];
+        const key = newRowData[xAxisIndex];
+        newRowData.splice(xAxisIndex, 1);
+        return {
+          key,
+          categoryDataList: this.categoryList.map((category, index) => ({
+            category,
+            value: Number(newRowData[index].split(",").join(""))
+          })).filter(
+            ({ category }) => {
+              if (this._filteredCategory === void 0) {
+                return true;
+              }
+              return category === this._filteredCategory;
+            }
+          )
+        };
+      }))}`);
       return this._data.data.map((rowData) => {
         const newRowData = [...rowData];
         const key = newRowData[xAxisIndex];
