@@ -1,0 +1,283 @@
+<html>
+  <script>
+    class CanvasHandler {
+      objects = []
+
+      constructor(canvas) {
+        this.canvas = canvas
+        this.ctx = canvas.getContext('2d')
+        window.addEventListener('keydown', this.onKeyDown)
+        this.canvas.addEventListener('mousemove', this.onMouseMove)
+        this.canvas.addEventListener('mousedown', this.onMouseDown)
+      }
+
+      onKeyDown = (e) => {
+        const player = this.objects.find(obj => obj instanceof Player)
+        if (e.code === 'Space') {
+          const bullet = new Bullet({
+            posX: player.getShootPos().x,
+            posY: player.getShootPos().y,    
+            angle: player.gunAngle,
+            shooter: 'player'
+          })
+          this.addObject(bullet)
+        } if (e.code == 'ArrowDown') {
+          player.posY += 5
+        } if (e.code == 'ArrowUp') {
+          player.posY -= 5
+        } if (e.code == 'ArrowLeft') {
+          player.posX -= 5
+        } if (e.code == 'ArrowRight') {
+          player.posX += 5
+        }
+      }
+
+      onMouseDown = (e) => {
+        const player = this.objects.find(obj => obj instanceof Player)
+        const bullet = new Bullet({
+          posX: player.getShootPos().x,
+          posY: player.getShootPos().y,    
+          angle: player.gunAngle,
+          shooter: 'player'
+        })
+        this.addObject(bullet)
+      }
+
+      onMouseMove = (e) => {
+        const rect = this.canvas.getBoundingClientRect()
+        const mouseX = e.clientX - rect.left
+        const mouseY = e.clientY - rect.top
+        const player = this.objects.find(obj => obj instanceof Player)
+        player.changeGunAngle(
+          {x: player.posX + 13, y: player.posY + 13},
+          {x: mouseX, y: mouseY}
+        )
+
+      }
+
+      addObject(obj) {
+        this.objects.push(obj)
+      }
+
+      draw = () => {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+        this.objects.forEach(obj => {
+          obj.draw(this.ctx)
+        })
+        requestAnimationFrame(this.draw)
+      }
+    }
+
+    class GameObject {
+      posX = 0
+      posY = 0
+      velX = 0
+      velY = 0
+      angle = 0
+
+      constructor({
+        posX,
+        posY,
+        velX,
+        velY,
+        angle
+      }) {
+        this.posX = posX
+        this.posY = posY
+        this.velX = velX || 0
+        this.velY = velY || 0
+        this.angle = angle || 0
+      }
+
+      draw(ctx) {}
+    }
+
+    class Bullet extends GameObject {
+      color = 'black'
+      shooter = 'player' | 'enemy'
+
+      constructor({
+        posX,
+        posY,
+        angle,
+        velX,
+        velY,
+        shooter
+      }) {
+        super({
+          posX,
+          posY,
+          velX: 0.02  * Math.cos(angle) + (velX || 0),
+          velY: 0.02 * Math.sin(angle) + (velY || 0),
+          angle
+        })
+        this.shooter = shooter
+        this.startTime = Date.now()
+      }
+
+      updatePosition(currentTime) {
+        const elapsed = currentTime - this.startTime
+        this.posX += this.velX * elapsed
+        this.posY += this.velY * elapsed
+      }
+
+      draw(ctx) {
+        this.updatePosition(Date.now())
+        ctx.fillStyle = this.color
+        ctx.beginPath()
+        ctx.arc(this.posX, this.posY, 5, 0, 2 * Math.PI)
+        ctx.fill()
+      }
+    }
+
+    const TANK_WIDTH = 30
+    const TANK_HEIGHT = 30
+    const GUN_WIDTH = 6
+    const GUN_LENGTH = 20
+
+    class Tank extends GameObject {
+      color = 'green'
+      gunAngle = 0
+      width = TANK_WIDTH
+      height = TANK_HEIGHT
+
+      gunWidth = GUN_WIDTH
+      gunLength = GUN_LENGTH
+
+      constructor({
+        posX,
+        posY,
+        angle = 0
+      }) {
+        super({posX, posY, angle})
+      }
+
+      setColor (color) {
+        this.color = color
+      }
+
+      draw(ctx) {
+        console.log('Drawing tank at', this.posX, this.posY)
+        ctx.fillStyle = this.color
+        ctx.strokeStyle = 'black'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        
+        ctx.fillRect(this.posX, this.posY, this.width, this.height)
+        
+        const g0 = {
+          x: this.width / 2 + this.posX,
+          y: this.height / 2 + this.posY
+        }
+        const angle = this.gunAngle
+        const g1 = {
+          x: g0.x - this.gunWidth / 2 * Math.sin(angle),
+          y: g0.y + this.gunWidth / 2 * Math.cos(angle)
+        }
+        ctx.moveTo(g1.x, g1.y)
+        const g2 = {
+          x: g1.x + this.gunLength * Math.cos(angle),
+          y: g1.y + this.gunLength * Math.sin(angle)
+        }
+        ctx.lineTo(g2.x, g2.y)
+        const g3 = {
+          x: g2.x + this.gunWidth * Math.sin(angle),
+          y: g2.y - this.gunWidth * Math.cos(angle)
+        }
+        ctx.lineTo(g3.x, g3.y)
+        const g4 = {
+          x: g3.x - this.gunLength * Math.cos(angle),
+          y: g3.y - this.gunLength * Math.sin(angle)
+        }
+        ctx.lineTo(g4.x, g4.y)
+        ctx.closePath()
+        ctx.stroke()
+        ctx.fill()
+      }
+
+      changeGunAngle(tankPos, targetPos) {
+        const deltaX = targetPos.x - tankPos.x
+        const deltaY = targetPos.y - tankPos.y
+        this.gunAngle = Math.atan2(deltaY, deltaX)
+      }
+
+      getShootPos() {
+        return {
+          x: this.width / 2 + this.posX + this.gunLength * Math.cos(this.gunAngle),
+          y: this.height / 2 + this.posY + this.gunLength * Math.sin(this.gunAngle)
+        }
+      }
+    }
+
+    class Player extends Tank {
+      poseAngle = 0
+      constructor(posX, posY) {
+        super({posX, posY, angle: Math.PI * 1 / 4} )
+        this.color = 'blue'
+      }
+
+      
+
+      draw(ctx) {
+        super.draw(ctx)
+      }
+    }
+
+    class Enemy extends Tank {
+      constructor(posX, posY) {
+        super({posX, posY} )
+        this.color = 'red'
+      }
+
+      draw = (ctx) => {
+        super.draw(ctx)
+      }
+    }
+
+    class Stage extends GameObject {
+      width = 0
+      height = 0
+
+      constructor({
+        x,
+        y,
+        width,
+        height
+      }) {
+        super({x, y})
+        this.width = width
+        this.height = height
+      }
+
+      draw(ctx) {
+        ctx.fillStyle = 'grey'
+        ctx.fillRect(this.posX, this.posY, this.width, this.height)
+      }
+    }
+
+    function init() {
+      const canvas = document.getElementById('canvas')
+      const ctx = canvas.getContext('2d')
+      canvas.width = 800
+      canvas.height = 600
+
+      const canvasHandler = new CanvasHandler(canvas)
+      const stage = new Stage({
+        x: 0,
+        y: 0,
+        width: canvas.width,
+        height: canvas.height
+      })
+      const player = new Player(50, 50)
+      const enemy = new Enemy(400, 400)
+
+      canvasHandler.addObject(player)
+      canvasHandler.addObject(enemy)
+      canvasHandler.draw()
+    }
+      
+  </script>
+  <body onload="init()">
+    <canvas id="canvas" />
+  </body>
+</html>
